@@ -1,0 +1,15 @@
+General Purpose - This program is responsible for download excel files.
+
+/export/task_processor.py - in this file there is a task list for export. each task task as relevent id.  
+
+***Functions***
+
+1.create_incidnt_list      -This function create a excel incident list                              
+
+2.create_direct_lod        -This function create a excel direct lod incident list
+
+3.create_cpe_list        -This function create a excel direct cpe incident list
+
+4.create_drc_summary       -This function create a excel drc summary list
+
+
