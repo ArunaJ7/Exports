@@ -9,12 +9,13 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
 import os
-from utils.connectDB import get_db_connection
 import logging.config
-from utils.config_loader import get_config
 from pymongo import MongoClient
+from utils.connectionMongo import MongoDBConnectionSingleton
+from utils.logger import SingletonLogger
+from logging import getLogger
 
-logger = logging.getLogger('excel_data_writer')
+logger = getLogger('appLogger')
 
 INCIDENT_HEADERS = [
     "Task_Id", "Incident_Id", "Account_Num", "Incident_Status", "Actions",
@@ -24,19 +25,11 @@ INCIDENT_HEADERS = [
 def excel_incident_detail(action_type, status, from_date, to_date):
 
     """Fetch and export incidents with a fixed Task_Id of 20 based on validated parameters"""
-    try:
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client["DRS"]
-        logger.info(f"Connected to MongoDB successfully | DRS")
 
-    except Exception as err:
-        print("Connection error")
-        logger.error(f"MongoDB connection failed: {str(err)}")
-        return False
-    else:
-        try:   
+   
+    try:   
 
-            collection = db["Incident_log"]
+            incident_log_collection = MongoDBConnectionSingleton["Incident_log"]
             query = {} 
 
             # Check each parameter and build query
@@ -87,7 +80,7 @@ def excel_incident_detail(action_type, status, from_date, to_date):
             
             # Log and execute query
             logger.info(f"Executing query: {query}")
-            incidents = list(collection.find(query))  # Fetch data into an array
+            incidents = list(incident_log_collection.find(query))  # Fetch data into an array
             logger.info(f"Found {len(incidents)} matching incidents")
 
            
@@ -119,18 +112,15 @@ def excel_incident_detail(action_type, status, from_date, to_date):
             
 
 
-        except ValueError as ve:
-            logger.error(f"Validation error: {str(ve)}")
-            print(f"Error: {str(ve)}")
-            return False
-        except Exception as e:
-            logger.error(f"Export failed: {str(e)}", exc_info=True)
-            print(f"\nError during export: {str(e)}")
-            return False
-        finally:
-            if client:
-                client.close()
-                logger.info("MongoDB connection closed")
+    except ValueError as ve:
+        logger.error(f"Validation error: {str(ve)}")
+        print(f"Error: {str(ve)}")
+        return False
+    except Exception as e:
+        logger.error(f"Export failed: {str(e)}", exc_info=True)
+        print(f"\nError during export: {str(e)}")
+        return False
+    
 
 
 def create_incident_table(wb, data, filters=None):

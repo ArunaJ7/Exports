@@ -1,10 +1,10 @@
-import logging
-import logging.config
 from export.task_processor import process_tasks
+from utils.logger import SingletonLogger
 
-# Load logger configuration
-logging.config.fileConfig('config/logger/loggers.ini')
-logger = logging.getLogger('excel_data_writer')
+SingletonLogger.configure()
+
+logger = SingletonLogger.get_logger('appLogger')
+db_logger = SingletonLogger.get_logger('dbLogger')
 
 def main():
     """Main entry point to run task processing"""
