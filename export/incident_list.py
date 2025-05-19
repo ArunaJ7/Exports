@@ -18,7 +18,7 @@ from logging import getLogger
 logger = getLogger('appLogger')
 
 INCIDENT_HEADERS = [
-    "Task_Id", "Incident_Id", "Account_Num", "Incident_Status", "Actions",
+    "Incident_Id", "Account_Num", "Incident_Status", "Actions",
     "Monitor_Months", "Created_By", "Created_Dtm", "Source_Type"
 ]
 
@@ -28,8 +28,8 @@ def excel_incident_detail(action_type, status, from_date, to_date):
 
    
     try:   
-
-            incident_log_collection = MongoDBConnectionSingleton["Incident_log"]
+            db = MongoDBConnectionSingleton().get_database()
+            incident_log_collection = db["Incident_log"]
             query = {} 
 
             # Check each parameter and build query

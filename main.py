@@ -1,5 +1,6 @@
-from export.task_processor import process_tasks
+from manipulation.task_manager import TaskManager
 from utils.logger import SingletonLogger
+from tasks.config_loader import ConfigLoaderSingleton
 
 SingletonLogger.configure()
 
@@ -10,7 +11,9 @@ def main():
     """Main entry point to run task processing"""
     logger.info("Starting task processing script (single execution)...")
     try:
-        process_tasks()
+        ConfigLoaderSingleton()
+        task_manager = TaskManager()
+        task_manager.execute_tasks()
         logger.info("Task processing completed successfully")
     except Exception as e:
         logger.error(f"Task processing failed: {str(e)}", exc_info=True)

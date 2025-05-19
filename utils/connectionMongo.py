@@ -3,7 +3,6 @@ import configparser
 from pathlib import Path
 from pymongo import MongoClient
 from utils.logger import SingletonLogger
-from utils.connectionMongo import MongoDBConnectionSingleton
 
 
 class MongoDBConnectionSingleton:
