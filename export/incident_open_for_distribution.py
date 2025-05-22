@@ -5,13 +5,13 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
-import os
-from utils.connectDB import get_db_connection
-import logging.config
-from utils.config_loader import get_config
+from logging import getLogger
 from pymongo import MongoClient
+from utils.connectionMongo import MongoDBConnectionSingleton
+from tasks.config_loader import ConfigLoaderSingleton
 
-logger = logging.getLogger('excel_data_writer')
+
+logger = getLogger('excel_data_writer')
 
 INCIDENT_OPEN_FOR_DISTRIBUTION_HEADERS = [
     "Id", "Incident_Status", "Account_Num", "Actions",
@@ -20,31 +20,27 @@ INCIDENT_OPEN_FOR_DISTRIBUTION_HEADERS = [
 
 def excel_incident_open_distribution():
     """Fetch and export all open incidents for distribution without parameter filtering"""
+    
     try:
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client["DRS"]
-        logger.info(f"Connected to MongoDB successfully | DRS")
+            # Get export directory from config
+            export_dir = ConfigLoaderSingleton().get_export_path()
+            export_dir.mkdir(parents=True, exist_ok=True)
 
-    except Exception as err:
-        print("Connection error")
-        logger.error(f"MongoDB connection failed: {str(err)}")
-        return False
-    else:
-        try:
-            collection = db["Incident_log"]
-            query = {"Incident_Status": "Incident Open"}  # Fixed filter for open incidents
+            db = MongoDBConnectionSingleton().get_database()
+            incident_log_collection = db["Incident_log"]
+            
+            incident_open_query = {"Incident_Status": "Incident Open"}  # Fixed filter for open incidents
 
             # Log and execute query
-            logger.info(f"Executing query: {query}")
-            incidents = list(collection.find(query))
+            logger.info(f"Executing query: {incident_open_query}")
+            incidents = list(incident_log_collection.find(incident_open_query))
             logger.info(f"Found {len(incidents)} matching incidents")
 
             # Export to Excel even if no incidents are found
-            output_dir = "exports"
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"incident_open_distribution_{timestamp}.xlsx"
-            filepath = os.path.join(output_dir, filename)
-            os.makedirs(output_dir, exist_ok=True)
+            filepath = export_dir / filename
+         
 
             wb = Workbook()
             wb.remove(wb.active)
@@ -59,14 +55,11 @@ def excel_incident_open_distribution():
                 print(f"\nSuccessfully exported {len(incidents)} records to: {filepath}")
             return True
 
-        except Exception as e:
-            logger.error(f"Export failed: {str(e)}", exc_info=True)
-            print(f"\nError during export: {str(e)}")
-            return False
-        finally:
-            if client:
-                client.close()
-                logger.info("MongoDB connection closed")
+    except Exception as e:
+        logger.error(f"Export failed: {str(e)}", exc_info=True)
+        print(f"\nError during export: {str(e)}")
+        return False
+        
 
 def create_incident_open_distribution_table(wb, data):
     """Create formatted Excel sheet with open incident distribution data, including headers even if no data"""

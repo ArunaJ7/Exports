@@ -11,7 +11,6 @@ def main():
     """Main entry point to run task processing"""
     logger.info("Starting task processing script (single execution)...")
     try:
-        ConfigLoaderSingleton()
         task_manager = TaskManager()
         task_manager.execute_tasks()
         logger.info("Task processing completed successfully")
