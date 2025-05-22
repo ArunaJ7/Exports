@@ -1,17 +1,98 @@
-import logging
+'''
+Purpose: This module handles the export of pending and rejected incident data from MongoDB to formatted Excel reports
+Created Date: 2025-01-18
+Created By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Last Modified Date: 2024-02-20
+Modified By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Version: Python 3.12
+Dependencies:
+    - pymongo (for MongoDB connectivity)
+    - openpyxl (for Excel file operations)
+    - python-dotenv (for environment variables)
+    - logging (for execution tracking)
+Related Files:
+    - task_handler.py (initiates the export process)
+    - config_loader.py (provides export path configuration)
+    - style_loader.py (handles Excel styling)
+    - connectionMongo.py (database connection handler)
+
+Program Description:
+1. Core Functionality:
+    - excel_pending_reject_incident(): Main export function that:
+        a. Validates input parameters (DRC commission rules, date range)
+        b. Constructs MongoDB query for pending/rejected incidents
+        c. Executes query against Incident_log collection
+        d. Generates formatted Excel report
+    - create_pending_reject_incident_table(): Handles Excel sheet creation with:
+        a. Professional formatting and styling
+        b. Dynamic column sizing
+        c. Filter headers display
+        d. Empty dataset handling
+
+2. Data Flow:
+    - Receives filter parameters from calling function
+    - Fetches data from Incident_log collection with "Incident_Status" in ["Incident Pending", "Incident Reject"]
+    - Transforms MongoDB documents to Excel rows
+    - Applies consistent styling using STYLES configuration
+    - Saves report to configured export directory
+
+3. Key Features:
+    - Parameter Validation:
+        - Validates DRC commission rules as non-empty list
+        - Date format enforcement (YYYY-MM-DD)
+        - Date range validation (to_date cannot be earlier than from_date)
+    - Error Handling:
+        - Comprehensive validation errors
+        - Database operation failures
+        - File system permissions
+    - Reporting:
+        - Automatic filename generation with timestamp (pending_reject_incidents_[timestamp].xlsx)
+        - Empty dataset handling with headers
+        - Console and log feedback
+
+4. Configuration:
+    - Export path determined by ConfigLoaderSingleton
+    - Styles managed through style_loader.py
+    - Column headers defined in PENDING_REJECT_INCIDENT_HEADERS constant:
+        * Incident_Id
+        * Incident_Status
+        * Account_Num
+        * Filtered_Reason
+        * Rejected_Dtm
+        * Source_Type
+
+5. Integration Points:
+    - Called by task handlers for pending/rejected incident reporting
+    - Uses MongoDBConnectionSingleton for database access
+    - Leverages application-wide logging
+
+Technical Specifications:
+    - Input Parameters:
+        - drc_commission_rules: List of strings (valid commission rules)
+        - from_date/to_date: String (YYYY-MM-DD format)
+    - Output:
+        - Excel file with standardized naming convention
+        - Returns boolean success status
+    - Collections Accessed:
+        - Incident_log (primary data source)
+        - Filters for status in ["Incident Pending", "Incident Reject"]
+    - Special Data Handling:
+        - Converts ObjectId to string for Incident_Id
+        - Formats datetime objects for Rejected_Dtm
+        - Maintains headers even with empty result sets
+'''
+
 from datetime import datetime, timedelta
 from bson import ObjectId
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
-import os
-from utils.connectDB import get_db_connection
-import logging.config
-from utils.config_loader import get_config
-from pymongo import MongoClient
+from utils.connectionMongo import MongoDBConnectionSingleton
+from logging import getLogger
+from tasks.config_loader import ConfigLoaderSingleton
 
-logger = logging.getLogger('excel_data_writer')
+logger = getLogger('appLogger')
 
 PENDING_REJECT_INCIDENT_HEADERS = [
     "Incident_Id", "Incident_Status", "Account_Num", "Filtered_Reason",
@@ -19,25 +100,22 @@ PENDING_REJECT_INCIDENT_HEADERS = [
 ]
 
 def excel_pending_reject_incident(drc_commission_rules, from_date, to_date):
-    """Fetch and export pending/reject incidents based on validated parameters"""
+    """Fetch and export pending reject incidents based on validated parameters"""
+    
     try:
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client["DRS"]
-        logger.info(f"Connected to MongoDB successfully | DRS")
+            #Get export directory from config
+            export_dir = ConfigLoaderSingleton().get_export_path()
+            export_dir.mkdir(parents=True, exist_ok=True)
 
-    except Exception as err:
-        print("Connection error")
-        logger.error(f"MongoDB connection failed: {str(err)}")
-        return False
-    else:
-        try:
-            collection = db["Incident_log"]
-            query = {"Incident_Status": {"$in": ["Incident Pending", "Incident Reject"]}}
+            db = MongoDBConnectionSingleton().get_database()
+            incident_log_collection = db["Incident_log"]
+
+            pending_reject_query = {"Incident_Status": {"$in": ["Incident Pending", "Incident Reject"]}}
 
             # Check drc_commission_rules
             if drc_commission_rules is not None:
                 if isinstance(drc_commission_rules, list) and drc_commission_rules:
-                    query["Filtered_Reason"] = {"$in": drc_commission_rules}
+                    pending_reject_query["Filtered_Reason"] = {"$in": drc_commission_rules}
                 else:
                     raise ValueError("drc_commission_rules must be a non-empty list of valid commission rules")
 
@@ -50,7 +128,7 @@ def excel_pending_reject_incident(drc_commission_rules, from_date, to_date):
                     if to_dt < from_dt:
                         raise ValueError("to_date cannot be earlier than from_date")
                     
-                    query["Rejected_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
+                    pending_reject_query["Rejected_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
 
                 except ValueError as ve:
                     if str(ve).startswith("to_date"):
@@ -58,16 +136,14 @@ def excel_pending_reject_incident(drc_commission_rules, from_date, to_date):
                     raise ValueError(f"Invalid date format. Use 'YYYY-MM-DD'. Error: {str(ve)}")
 
             # Log and execute query
-            logger.info(f"Executing query: {query}")
-            incidents = list(collection.find(query))
+            logger.info(f"Executing query: {pending_reject_query}")
+            incidents = list(incident_log_collection.find(pending_reject_query))
             logger.info(f"Found {len(incidents)} matching incidents")
 
             # Export to Excel even if no incidents are found
-            output_dir = "exports"
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"pending_reject_incidents_{timestamp}.xlsx"
-            filepath = os.path.join(output_dir, filename)
-            os.makedirs(output_dir, exist_ok=True)
+            filepath = export_dir / filename
 
             wb = Workbook()
             wb.remove(wb.active)
@@ -76,37 +152,33 @@ def excel_pending_reject_incident(drc_commission_rules, from_date, to_date):
                 "drc_commission_rules": drc_commission_rules,
                 "date_range": (from_dt if from_date is not None else None, to_dt if to_date is not None else None)
             }):
-                raise Exception("Failed to create pending/reject incident sheet")
+                raise Exception("Failed to create pending reject incident sheet")
 
             wb.save(filepath)
             if not incidents:
-                print(f"No pending/reject incidents found matching the selected filters. Exported empty table to: {filepath}")
+                print(f"No pending reject incidents found matching the selected filters. Exported empty table to: {filepath}")
             else:
                 print(f"\nSuccessfully exported {len(incidents)} records to: {filepath}")
             return True
 
-        except ValueError as ve:
-            logger.error(f"Validation error: {str(ve)}")
-            print(f"Error: {str(ve)}")
-            return False
-        except Exception as e:
-            logger.error(f"Export failed: {str(e)}", exc_info=True)
-            print(f"\nError during export: {str(e)}")
-            return False
-        finally:
-            if client:
-                client.close()
-                logger.info("MongoDB connection closed")
-
+    except ValueError as ve:
+        logger.error(f"Validation error: {str(ve)}")
+        print(f"Error: {str(ve)}")
+        return False
+    except Exception as e:
+        logger.error(f"Export failed: {str(e)}", exc_info=True)
+        print(f"\nError during export: {str(e)}")
+        return False
+        
 def create_pending_reject_incident_table(wb, data, filters=None):
-    """Create formatted Excel sheet with pending/reject incident data, including headers even if no data"""
+    """Create formatted Excel sheet with pending reject incident data, including headers even if no data"""
     try:
         ws = wb.create_sheet(title="PENDING REJECT INCIDENT REPORT")
         row_idx = 1
         
         # Main Header
         ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=len(PENDING_REJECT_INCIDENT_HEADERS))
-        main_header = ws.cell(row=row_idx, column=1, value="PENDING/REJECT INCIDENT REPORT")
+        main_header = ws.cell(row=row_idx, column=1, value="PENDING REJECT INCIDENT REPORT")
         main_header.font = STYLES['MainHeader_Style']['font']
         main_header.fill = STYLES['MainHeader_Style']['fill']
         main_header.alignment = STYLES['MainHeader_Style']['alignment']

@@ -1,49 +1,147 @@
-import logging
+'''
+Purpose: This module handles the export of CPE (Customer Premises Equipment) collection incidents from MongoDB to formatted Excel reports
+Created Date: 2025-01-18
+Created By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Last Modified Date: 2024-02-20
+Modified By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Version: Python 3.12
+Dependencies:
+- pymongo (for MongoDB connectivity)
+- openpyxl (for Excel file operations)
+- python-dotenv (for environment variables)
+- logging (for execution tracking)
+Related Files:
+- task_handler.py (initiates the export process)
+- config_loader.py (provides export path configuration)
+- style_loader.py (handles Excel styling)
+- connectionMongo.py (database connection handler)
+
+Program Description:
+
+Core Functionality:
+
+excel_cpe_detail(): Main export function that:
+a. Validates input parameters (date range, DRC commission rule)
+b. Constructs MongoDB query for CPE collection incidents
+c. Executes query against Incident_log collection
+d. Generates formatted Excel report
+
+create_cpe_table(): Handles Excel sheet creation with:
+a. Professional formatting and styling
+b. Dynamic column sizing
+c. Filter headers display
+d. Empty dataset handling
+
+Data Flow:
+
+Receives filter parameters from calling function
+
+Fetches data from Incident_log collection with "Actions": "collect CPE"
+
+Transforms MongoDB documents to Excel rows
+
+Applies consistent styling using STYLES configuration
+
+Saves report to configured export directory
+
+Key Features:
+
+Parameter Validation:
+
+Valid DRC commission rules: "PEO TV" or "BB"
+
+Date format enforcement (YYYY-MM-DD)
+
+Date range validation (to_date cannot be earlier than from_date)
+
+Error Handling:
+
+Comprehensive validation errors
+
+Database operation failures
+
+File system permissions
+
+Reporting:
+
+Automatic filename generation with timestamp (cpe_incidents_[timestamp].xlsx)
+
+Empty dataset handling
+
+Console and log feedback
+
+Configuration:
+
+Export path determined by ConfigLoaderSingleton
+
+Styles managed through style_loader.py
+
+Column headers defined in CPE_HEADERS constant:
+
+Incident_Id
+
+Incident_Status
+
+Account_Num
+
+Actions
+
+Created_Dtm
+
+Integration Points:
+
+Called by task handlers for CPE collection reporting
+
+Uses MongoDBConnectionSingleton for database access
+
+Leverages application-wide logging
+
+Technical Specifications:
+- Input Parameters:
+- from_date/to_date: String (YYYY-MM-DD format)
+- drc_commision_rule: String ("PEO TV" or "BB")
+- Output:
+- Excel file with standardized naming convention
+- Returns boolean success status
+- Collections Accessed:
+- Incident_log (primary data source)
+- Filters specifically for "Actions": "collect CPE"
+- Special Data Handling:
+- Converts ObjectId to string for Incident_Id
+- Formats datetime objects for Created_Dtm
+'''
+
 from datetime import datetime, timedelta
 from bson import ObjectId
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
-import os
-from pymongo import MongoClient
+from utils.connectionMongo import MongoDBConnectionSingleton
+from logging import getLogger
+from tasks.config_loader import ConfigLoaderSingleton
 
-
-logger = logging.getLogger('excel_data_writer')
+logger = getLogger('appLogger')
 
 CPE_HEADERS = [
     "Incident_Id", "Incident_Status", "Account_Num", "Actions",
     "Created_Dtm"
 ]
 
-
 def excel_cpe_detail(from_date, to_date, drc_commision_rule):
     """Fetch and export 'collect CPE' incidents from Incident collection"""
 
+
     try:
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client["DRS"]
-        logger.info(f"Connected to MongoDB successfully | DRS")
+            # Get export directory from config
+            export_dir = ConfigLoaderSingleton().get_export_path()
+            export_dir.mkdir(parents=True, exist_ok=True)
 
-    except Exception as err:
-        print("Connection error")
-        logger.error(f"MongoDB connection failed: {str(err)}")
-        return False
-    else:
+            db = MongoDBConnectionSingleton().get_database()
+            incident_log_collection = db["Incident_log"]
+            cpe_list_query = {"Actions": "collect CPE"}  # Fixed to only collect CPE
 
-        try:
-            collection = db["Incident"]
-            query = {"Actions": "collect CPE"}  # Fixed to only collect CPE
-
-            # Validate and apply drc_commision_rule filter
-            if drc_commision_rule is not None:
-                if drc_commision_rule == "PEO TV":
-                    query["Drc commision rule"] = {"$regex": f"^{drc_commision_rule}$"}
-                elif drc_commision_rule == "BB":
-                    query["Actions"] = drc_commision_rule   
-                else:
-                    raise ValueError(f"Invalid drc_commision_rule '{drc_commision_rule}'. Must be 'PEO TV', 'BB'")
-                     
+            
 
             # Apply date range filter
             if from_date is not None and to_date is not None:
@@ -57,24 +155,31 @@ def excel_cpe_detail(from_date, to_date, drc_commision_rule):
                         raise ValueError("to_date cannot be earlier than from_date")
                     
                    # Construct query                  
-                    query["Created_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
+                    cpe_list_query["Created_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
 
                 except ValueError as ve:
                     if str(ve).startswith("to_date"):
                         raise
                     raise ValueError(f"Invalid date format. Use 'YYYY-MM-DD'. Error: {str(ve)}")
 
+            # Validate and apply drc_commision_rule filter
+            if drc_commision_rule is not None:
+                if drc_commision_rule == "PEO TV":
+                    cpe_list_query["Drc commision rule"] = {"$regex": f"^{drc_commision_rule}$"}
+                elif drc_commision_rule == "BB":
+                    cpe_list_query["Actions"] = drc_commision_rule   
+                else:
+                    raise ValueError(f"Invalid drc_commision_rule '{drc_commision_rule}'. Must be 'PEO TV', 'BB'")
+                         
 
-            logger.info(f"Executing query on Incident for CPE: {query}")
-            incidents = list(collection.find(query))
+            logger.info(f"Executing query on Incident for CPE: {cpe_list_query}")
+            incidents = list(incident_log_collection.find(cpe_list_query))
             logger.info(f"Found {len(incidents)} matching CPE incidents")
 
             # Export to Excel
-            output_dir = "exports"
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"cpe_incidents_{timestamp}.xlsx"
-            filepath = os.path.join(output_dir, filename)
-            os.makedirs(output_dir, exist_ok=True)
+            filepath = export_dir / filename
 
             wb = Workbook()
             wb.remove(wb.active)
@@ -95,18 +200,14 @@ def excel_cpe_detail(from_date, to_date, drc_commision_rule):
                 print(f"\nSuccessfully exported {len(incidents)} CPE records to: {filepath}")
             return True
 
-        except ValueError as ve:
-            logger.error(f"Validation error: {str(ve)}")
-            print(f"Error: {str(ve)}")
-            return False
-        except Exception as e:
-            logger.error(f"Export failed: {str(e)}", exc_info=True)
-            print(f"\nError during export: {str(e)}")
-            return False
-        finally:
-            if client:
-                client.close()
-                logger.info("MongoDB connection closed")
+    except ValueError as ve:
+        logger.error(f"Validation error: {str(ve)}")
+        print(f"Error: {str(ve)}")
+        return False
+    except Exception as e:
+        logger.error(f"Export failed: {str(e)}", exc_info=True)
+        print(f"\nError during export: {str(e)}")
+        return False   
     
 
 def create_cpe_table(wb, data, filters=None):

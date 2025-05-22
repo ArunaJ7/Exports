@@ -1,60 +1,136 @@
-import logging
+'''
+Purpose: This module handles the export of rejected incident data from MongoDB to formatted Excel reports
+Created Date: 2025-03-20  
+Created By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Last Modified Date: 2024-05-20
+Modified By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Version: Python 3.12
+Dependencies:
+    - pymongo (for MongoDB connectivity)
+    - openpyxl (for Excel file operations) 
+    - python-dotenv (for environment variables)
+    - logging (for execution tracking)
+Related Files:
+    - task_handler.py (initiates the export process)
+    - config_loader.py (provides export path configuration)
+    - style_loader.py (handles Excel styling)
+    - connectionMongo.py (database connection handler)
+
+Program Description:
+1. Core Functionality:
+    - excel_rejected_detail(): Main export function that:
+        a. Validates input parameters (actions, DRC commission rule, date range)
+        b. Constructs MongoDB query for rejected incidents
+        c. Executes query against Incident collection
+        d. Generates formatted Excel report
+    - create_rejected_table(): Handles Excel sheet creation with:
+        a. Professional formatting and styling
+        b. Dynamic column sizing
+        c. Filter headers display
+        d. Empty dataset handling
+
+2. Data Flow:
+    - Receives filter parameters from calling function
+    - Fetches data from Incident collection with "Incident_Status": "Incident Reject"
+    - Transforms MongoDB documents to Excel rows
+    - Applies consistent styling using STYLES configuration
+    - Saves report to configured export directory
+
+3. Key Features:
+    - Parameter Validation:
+        - Valid actions: "collect arrears and CPE", "collect arrears", "collect CPE"
+        - Valid DRC commission rules: "PEO TV" or "BB"
+        - Date format enforcement (YYYY-MM-DD)
+        - Date range validation (to_date cannot be earlier than from_date)
+    - Error Handling:
+        - Comprehensive validation errors
+        - Database operation failures
+        - File system permissions
+    - Reporting:
+        - Automatic filename generation with timestamp (rejected_incidents_[timestamp].xlsx)
+        - Empty dataset handling
+        - Console and log feedback
+
+4. Configuration:
+    - Export path determined by ConfigLoaderSingleton
+    - Styles managed through style_loader.py
+    - Column headers defined in REJECTED_HEADERS constant:
+        * Incident_Id
+        * Incident_Status
+        * Account_Num
+        * Created_Dtm
+        * Filtered_Reason
+        * Rejected_Dtm
+        * Rejected_By
+
+5. Integration Points:
+    - Called by task handlers for rejected incident reporting
+    - Uses MongoDBConnectionSingleton for database access
+    - Leverages application-wide logging
+
+Technical Specifications:
+    - Input Parameters:
+        - actions: String (predefined values)
+        - drc_commision_rule: String ("PEO TV" or "BB")
+        - from_date/to_date: String (YYYY-MM-DD format)
+    - Output:
+        - Excel file with standardized naming convention
+        - Returns boolean success status
+    - Collections Accessed:
+        - Incident (primary data source)
+        - Filters specifically for "Incident_Status": "Incident Reject"
+    - Special Data Handling:
+        - Converts ObjectId to string for Incident_Id
+        - Formats datetime objects for Created_Dtm and Rejected_Dtm
+'''
+
 from datetime import datetime, timedelta
 from bson import ObjectId
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
-import os
-from pymongo import MongoClient
+from utils.connectionMongo import MongoDBConnectionSingleton
+from logging import getLogger
+from tasks.config_loader import ConfigLoaderSingleton
 
-
-logger = logging.getLogger('excel_data_writer')
-
+logger = getLogger('appLogger')
 
 REJECTED_HEADERS = [
     "Incident_Id", "Incident_Status", "Account_Num", "Created_Dtm",
     "Filtered_Reason", "Rejected_Dtm","Rejected_By"
 ]
 
-
-
 def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
     """Fetch and export rejected incidents from Incident collection"""
 
+        
     try:
+            # Get export directory from config
+            export_dir = ConfigLoaderSingleton().get_export_path()
+            export_dir.mkdir(parents=True, exist_ok=True)
 
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client["DRS"]
-        logger.info(f"Connected to MongoDB successfully | DRS")
-
-    except Exception as err:
-        print("Connection error")
-        logger.error(f"MongoDB connection failed: {str(err)}")
-        return False
-
-    else:
-        try:
-            collection = db["Incident"]
-            query = {"Incident_Status": "Incident Reject"}  # Fixed to only rejected incidents
+            db = MongoDBConnectionSingleton().get_database()
+            incident_collection = db["Incident"]
+            reject_query = {"Incident_Status": "Incident Reject"}  # Fixed to only rejected incidents
 
             # Validate and apply actions filter
             if actions is not None:
                 if actions == "collect CPE":
-                    query["Actions"] = {"$regex": f"^{actions}$"}
+                    reject_query["Actions"] = {"$regex": f"^{actions}$"}
                 elif actions == "collect arrears":
-                    query["Actions"] = actions
+                    reject_query["Actions"] = actions
                 elif actions == "collect arrears and CPE":
-                    query["Actions"] = actions
+                    reject_query["Actions"] = actions
                 else:
                      raise ValueError(f"Invalid actions '{actions}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
 
             # Validate and apply drc_commision_rule filter
             if drc_commision_rule is not None:
                 if drc_commision_rule == "PEO TV":
-                  query["drc_commision_rule"] = {"$regex": f"^{drc_commision_rule}$"}
+                  reject_query["drc_commision_rule"] = {"$regex": f"^{drc_commision_rule}$"}
                 elif drc_commision_rule == "BB":
-                  query["drc_commision_rule"] = drc_commision_rule
+                  reject_query["drc_commision_rule"] = drc_commision_rule
                 else:
                      raise ValueError(f"Invalid actions '{actions}'. Must be 'PEO TV', 'BB'")
 
@@ -70,7 +146,7 @@ def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
                     if to_dt < from_dt:
                         raise ValueError("to_date cannot be earlier than from_date")
 
-                    query["Created_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
+                    reject_query["Created_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
 
                 except ValueError as ve:
                     if str(ve).startswith("to_date"):
@@ -78,16 +154,15 @@ def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
                     raise ValueError(f"Invalid date format. Use 'YYYY-MM-DD'. Error: {str(ve)}")
 
 
-            logger.info(f"Executing query on Incident for rejected incidents: {query}")
-            incidents = list(collection.find(query))
+            logger.info(f"Executing query on Incident for rejected incidents: {reject_query}")
+            incidents = list(incident_collection.find(reject_query))
             logger.info(f"Found {len(incidents)} matching rejected incidents")
 
             # Export to Excel
             output_dir = "exports"
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"rejected_incidents_{timestamp}.xlsx"
-            filepath = os.path.join(output_dir, filename)
-            os.makedirs(output_dir, exist_ok=True)
+            filepath = export_dir / filename
 
             wb = Workbook()
             wb.remove(wb.active)
@@ -107,19 +182,16 @@ def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
                 print(f"\nSuccessfully exported {len(incidents)} rejected records to: {filepath}")
             return True            
            
-        except ValueError as ve:
-            logger.error(f"Validation error: {str(ve)}")
-            print(f"Error: {str(ve)}")
-            return False
-        except Exception as e:
-            logger.error(f"Export failed: {str(e)}", exc_info=True)
-            print(f"\nError during export: {str(e)}")
-            return False
+    except ValueError as ve:
+        logger.error(f"Validation error: {str(ve)}")
+        print(f"Error: {str(ve)}")
+        return False
+    except Exception as e:
+        logger.error(f"Export failed: {str(e)}", exc_info=True)
+        print(f"\nError during export: {str(e)}")
+        return False
     
-        finally:
-            if client:
-                client.close()
-                logger.info("MongoDB connection closed")
+        
 
 def create_rejected_table(wb, data, filters=None):
     """Create formatted Excel sheet with rejected incident data"""

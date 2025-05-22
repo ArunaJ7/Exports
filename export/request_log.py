@@ -1,17 +1,108 @@
-import logging
+'''
+Purpose: This module handles the export of request log data from MongoDB to formatted Excel reports
+Created Date: 2025-01-18  
+Created By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Last Modified Date: 2024-02-20
+Modified By: Aruna Jayaweera (ajayaweerau@gmail.com)  
+Version: Python 3.12
+Dependencies:
+    - pymongo (for MongoDB connectivity)
+    - openpyxl (for Excel file operations)
+    - python-dotenv (for environment variables)
+    - logging (for execution tracking)
+Related Files:
+    - task_handler.py (initiates the export process)
+    - config_loader.py (provides export path configuration)
+    - style_loader.py (handles Excel styling)
+    - connectionMongo.py (database connection handler)
+
+Program Description:
+1. Core Functionality:
+    - excel_request_log_detail(): Main export function that:
+        a. Validates input parameters (user ID, interaction type, status, date range)
+        b. Constructs MongoDB query for request logs
+        c. Executes query against Request_log collection
+        d. Generates formatted Excel report
+    - create_request_table(): Handles Excel sheet creation with:
+        a. Professional formatting and styling
+        b. Dynamic column sizing
+        c. Filter headers display
+        d. Empty dataset handling
+
+2. Data Flow:
+    - Receives filter parameters from calling function
+    - Fetches data from Request_log collection
+    - Transforms MongoDB documents to Excel rows with proper formatting
+    - Applies consistent styling using STYLES configuration
+    - Saves report to configured export directory
+
+3. Key Features:
+    - Parameter Validation:
+        - Validates delegate_user_id as non-empty string
+        - Valid interaction types: "FMB", "RO", "Admin"
+        - Valid request statuses: "Approved", "Pending", "Rejected"
+        - Date format enforcement (YYYY-MM-DD)
+        - Date range validation (date_to cannot be earlier than date_from)
+    - Data Formatting:
+        - Formats dates (mm/dd/YYYY)
+        - Combines validity period dates into range string
+        - Formats amounts with commas and 2 decimal places
+    - Error Handling:
+        - Comprehensive validation errors
+        - Database operation failures
+        - File system permissions
+    - Reporting:
+        - Automatic filename generation with timestamp (request_log_details_[timestamp].xlsx)
+        - Empty dataset handling with headers
+        - Console and log feedback
+
+4. Configuration:
+    - Export path determined by ConfigLoaderSingleton
+    - Styles managed through style_loader.py
+    - Column headers defined in REQUEST_HEADERS constant:
+        * Case ID
+        * Status
+        * Request Status
+        * Amount
+        * Validity Period
+        * DRC
+        * Request Type
+        * Requested date
+        * Approved
+
+5. Integration Points:
+    - Called by task handlers for request log reporting
+    - Uses MongoDBConnectionSingleton for database access
+    - Leverages application-wide logging
+
+Technical Specifications:
+    - Input Parameters:
+        - delegate_user_id: String (optional)
+        - User_Interaction_Type: String (predefined values)
+        - requestAccept: String (predefined values)
+        - date_from/date_to: String (YYYY-MM-DD format)
+    - Output:
+        - Excel file with standardized naming convention
+        - Returns boolean success status
+    - Collections Accessed:
+        - Request_log (primary data source)
+    - Query Logic:
+        - Checks "Requested date" field for date range
+        - Uses exact matching for status and interaction type values
+'''
+
 from datetime import datetime, timedelta
 from bson import ObjectId
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
-import os
-from utils.connectDB import get_db_connection
-import logging.config
-from utils.config_loader import get_config
-from pymongo import MongoClient
+from utils.connectionMongo import MongoDBConnectionSingleton
+from logging import getLogger
+from tasks.config_loader import ConfigLoaderSingleton
 
-logger = logging.getLogger('excel_data_writer')
+logger = getLogger('appLogger')
+
 
 REQUEST_HEADERS = [
     "Case ID", "Status", "Request Status", "Amount", "Validity Period",
@@ -20,38 +111,34 @@ REQUEST_HEADERS = [
 
 def excel_request_log_detail(delegate_user_id, User_Interaction_Type, requestAccept, date_from, date_to):
     """Fetch and export request log data based on validated parameters"""
-    try:
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client["DRS"]
-        logger.info(f"Connected to MongoDB successfully | DRS")
+    
+    try:   
+             # Get export directory from config
+            export_dir = ConfigLoaderSingleton().get_export_path()
+            export_dir.mkdir(parents=True, exist_ok=True)
 
-    except Exception as err:
-        print("Connection error")
-        logger.error(f"MongoDB connection failed: {str(err)}")
-        return False
-    else:
-        try:   
-            collection = db["Request_log"]
-            query = {}
+            db = MongoDBConnectionSingleton().get_database()
+            request_log_collection = db["Request_log"]
+            request_log_query = {}
 
             # Check delegate_user_id parameter
             if delegate_user_id is not None:
                 if not isinstance(delegate_user_id, str) or not delegate_user_id.strip():
                     raise ValueError("delegate_user_id must be a non-empty string")
-                query["delegate_user_id"] = delegate_user_id.strip()
+                request_log_query["delegate_user_id"] = delegate_user_id.strip()
 
             # Check User_Interaction_Type parameter
             if User_Interaction_Type is not None:
                 valid_interaction_types = ["FMB", "RO", "Admin"]  # Add all valid types
                 if User_Interaction_Type not in valid_interaction_types:
                     raise ValueError(f"Invalid User_Interaction_Type '{User_Interaction_Type}'. Must be one of: {', '.join(valid_interaction_types)}")
-                query["Request Type"] = User_Interaction_Type
+                request_log_query["Request Type"] = User_Interaction_Type
 
             # Check requestAccept parameter
             if requestAccept is not None:
                 if requestAccept not in ["Approved", "Pending", "Rejected"]:
                     raise ValueError("requestAccept must be either 'Approved', 'Pending', or 'Rejected'")
-                query["Approved"] = requestAccept
+                request_log_query["Approved"] = requestAccept
 
             # Check date range
             if date_from is not None and date_to is not None:
@@ -65,7 +152,7 @@ def excel_request_log_detail(delegate_user_id, User_Interaction_Type, requestAcc
                         raise ValueError("date_to cannot be earlier than date_from")
                     
                     # Construct query for date range (checking Requested date)
-                    query["Requested date"] = {"$gte": from_dt, "$lte": to_dt}
+                    request_log_query["Requested date"] = {"$gte": from_dt, "$lte": to_dt}
 
                 except ValueError as ve:
                     if str(ve).startswith("date_to"):
@@ -73,16 +160,14 @@ def excel_request_log_detail(delegate_user_id, User_Interaction_Type, requestAcc
                     raise ValueError(f"Invalid date format. Use 'YYYY-MM-DD'. Error: {str(ve)}")
 
             # Log and execute query
-            logger.info(f"Executing query: {query}")
-            requests = list(collection.find(query))
+            logger.info(f"Executing query: {request_log_query}")
+            requests = list(request_log_collection.find(request_log_query))
             logger.info(f"Found {len(requests)} matching requests")
 
             # Export to Excel even if no requests are found
-            output_dir = "exports"
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"request_log_details_{timestamp}.xlsx"
-            filepath = os.path.join(output_dir, filename)
-            os.makedirs(output_dir, exist_ok=True)
+            filepath = export_dir / filename
 
             wb = Workbook()
             wb.remove(wb.active)
@@ -102,18 +187,15 @@ def excel_request_log_detail(delegate_user_id, User_Interaction_Type, requestAcc
                 print(f"\nSuccessfully exported {len(requests)} records to: {filepath}")
             return True
 
-        except ValueError as ve:
-            logger.error(f"Validation error: {str(ve)}")
-            print(f"Error: {str(ve)}")
-            return False
-        except Exception as e:
-            logger.error(f"Export failed: {str(e)}", exc_info=True)
-            print(f"\nError during export: {str(e)}")
-            return False
-        finally:
-            if client:
-                client.close()
-                logger.info("MongoDB connection closed")
+    except ValueError as ve:
+        logger.error(f"Validation error: {str(ve)}")
+        print(f"Error: {str(ve)}")
+        return False
+    except Exception as e:
+        logger.error(f"Export failed: {str(e)}", exc_info=True)
+        print(f"\nError during export: {str(e)}")
+        return False
+       
 
 def create_request_table(wb, data, filters=None):
     """Create formatted Excel sheet with filtered request data, including headers even if no data"""

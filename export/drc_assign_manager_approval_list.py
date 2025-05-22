@@ -1,39 +1,132 @@
-import logging
+'''
+Purpose: This module handles the export of DRC approval data from MongoDB to formatted Excel reports
+Created Date: 2025-01-18
+Created By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Last Modified Date: 2024-02-20
+Modified By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Version: Python 3.12
+Dependencies:
+    - pymongo (for MongoDB connectivity)
+    - openpyxl (for Excel file operations)
+    - python-dotenv (for environment variables)
+    - logging (for execution tracking)
+
+Related Files:
+    - task_handler.py (initiates the export process)
+    - config_loader.py (provides export path configuration)
+    - style_loader.py (handles Excel styling)
+    - connectionMongo.py (database connection handler)
+
+Program Description:
+1. Core Functionality:
+    - excel_drc_approval_detail(): Main export function that:
+        a. Validates input parameters (approval type, date range)
+        b. Constructs MongoDB query for approval data
+        c. Processes nested approval array data
+        d. Generates formatted Excel report
+    - create_approval_table(): Handles Excel sheet creation with:
+        a. Professional formatting and styling
+        b. Dynamic column sizing
+        c. Filter headers display
+        d. Empty dataset handling
+
+2. Data Flow:
+    - Receives filter parameters from calling function
+    - Fetches data from Case_details collection
+    - Flattens nested approval array structure
+    - Transforms MongoDB documents to Excel rows
+    - Applies consistent styling using STYLES configuration
+    - Saves report to configured export directory
+
+3. Key Features:
+    - Parameter Validation:
+        - Valid approval types: "a1", "a2"
+        - Date format enforcement (YYYY-MM-DD)
+        - Date range validation (to_date cannot be earlier than from_date)
+    - Special Data Processing:
+        - Handles nested approval array data
+        - Converts ObjectId to string
+        - Formats datetime objects
+    - Error Handling:
+        - Comprehensive validation errors
+        - Database operation failures
+        - File system permissions
+    - Reporting:
+        - Automatic filename generation with timestamp (drc_approval_[timestamp].xlsx)
+        - Console and log feedback
+
+4. Configuration:
+    - Export path determined by ConfigLoaderSingleton
+    - Styles managed through style_loader.py
+    - Column headers defined in APPROVAL_HEADERS constant:
+        * case_id
+        * created_dtm
+        * created_by
+        * approval_type
+        * approve_status
+        * approved_by
+        * remark
+
+5. Integration Points:
+    - Called by task handlers for DRC approval reporting
+    - Uses MongoDBConnectionSingleton for database access
+    - Leverages application-wide logging
+
+Technical Specifications:
+    - Input Parameters:
+        - approval_type: String (predefined values)
+        - from_date/to_date: String (YYYY-MM-DD format)
+    - Output:
+        - Excel file with standardized naming convention
+        - Returns boolean success status
+    - Collections Accessed:
+        - Case_details (primary data source)
+    - Special Processing:
+        - Extracts and flattens data from nested "approve" array
+        - Filters approval records by type if specified
+'''
+
 from datetime import datetime, timedelta
 from bson import ObjectId
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
-import os
-from pymongo import MongoClient
+from utils.connectionMongo import MongoDBConnectionSingleton
+from logging import getLogger
+from tasks.config_loader import ConfigLoaderSingleton
 
-
-logger = logging.getLogger('excel_data_writer')
+logger = getLogger('appLogger')
 
 APPROVAL_HEADERS = [
     "case_id", "created_dtm", "created_by", "approval_type",
     "approve_status", "approved_by", "remark"
 ]
 
-VALID_APPROVAL_TYPES = ["a1", "a2"]
 
 def excel_drc_approval_detail(approval_type, from_date, to_date):
     """Fetch and export DRC assign manager approval details from Case_details collection"""
-    try:
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client["DRS"]
-        logger.info(f"Connected to MongoDB successfully | DRS")
-
-    except Exception as err:
-        print("Connection error")
-        logger.error(f"MongoDB connection failed: {str(err)}")
-        return False
     
-    else:
-        try:
+    
+    try:
+
+            # Get export directory from config
+            export_dir = ConfigLoaderSingleton().get_export_path()
+            export_dir.mkdir(parents=True, exist_ok=True)
+
+            db = MongoDBConnectionSingleton().get_database()
             collection = db["Case_details"]
             query = {}
+
+
+             # If approval_type is provided, filter within the approve array
+            if approval_type is not None:
+                if approval_type == "a1":
+                    query["approval_type"] = {"$regex": f"^{approval_type}$"}
+                elif approval_type == "a2":
+                    query["Incident_Status"] = approval_type
+                else:
+                    raise ValueError(f"Invalid approval type '{approval_type}'. Must be 'a1', 'a2'")
 
              # Check date range
             if from_date is not None and to_date is not None:
@@ -55,16 +148,7 @@ def excel_drc_approval_detail(approval_type, from_date, to_date):
                     raise ValueError(f"Invalid date format. Use 'YYYY-MM-DD'. Error: {str(ve)}")
 
 
-            # If approval_type is provided, filter within the approve array
-            if approval_type is not None:
-                if approval_type == "a1":
-                    query["approval_type"] = {"$regex": f"^{approval_type}$"}
-                elif approval_type == "a2":
-                    query["Incident_Status"] = approval_type
-                else:
-                    raise ValueError(f"Invalid approval type '{approval_type}'. Must be 'a1', 'a2'")
-
-
+           
                     
 
             logger.info(f"Executing query on Case_details: {query}")
@@ -98,8 +182,7 @@ def excel_drc_approval_detail(approval_type, from_date, to_date):
             output_dir= "exports" 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"drc_approval_{timestamp}.xlsx"
-            filepath = os.path.join(output_dir, filename)
-            os.makedirs(output_dir, exist_ok=True)
+            filepath = export_dir / filename
 
             wb = Workbook()
             wb.remove(wb.active)
@@ -115,14 +198,14 @@ def excel_drc_approval_detail(approval_type, from_date, to_date):
             print(f"\nSuccessfully exported {len(processed_data)} DRC approval records to: {filepath}")
             return True
 
-        except ValueError as ve:
-            logger.error(f"Validation error: {str(ve)}")
-            print(f"Error: {str(ve)}")
-            return False
-        except Exception as e:
-            logger.error(f"Export failed: {str(e)}", exc_info=True)
-            print(f"\nError during export: {str(e)}")
-            return False
+    except ValueError as ve:
+        logger.error(f"Validation error: {str(ve)}")
+        print(f"Error: {str(ve)}")
+        return False
+    except Exception as e:
+        logger.error(f"Export failed: {str(e)}", exc_info=True)
+        print(f"\nError during export: {str(e)}")
+        return False
 
 def create_approval_table(wb, data, filters=None):
     """Create formatted Excel sheet with DRC approval data"""

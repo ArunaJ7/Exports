@@ -1,14 +1,86 @@
-import logging
+'''
+Purpose: This module handles the export of Direct LOD incident data from MongoDB to formatted Excel reports
+Created Date: [Original creation date not specified in code]
+Created By: [Original author not specified in code]
+Last Modified Date: [Last modification date not specified in code]
+Modified By: [Last modifier not specified in code]
+Version: Python 3.x
+Dependencies:
+    - pymongo (for MongoDB connectivity)
+    - openpyxl (for Excel file operations)
+    - logging (for execution tracking)
+Related Files:
+    - config_loader.py (provides export path configuration)
+    - style_loader.py (handles Excel styling)
+    - connectionMongo.py (database connection handler)
+
+Program Description:
+1. Core Functionality:
+    - excel_direct_lod_detail(): Main export function that:
+        a. Validates input parameters (date range, DRC commission rule)
+        b. Constructs MongoDB query for Direct LOD incidents
+        c. Executes query and processes results
+        d. Generates formatted Excel report
+    - create_direct_lod_table(): Handles Excel sheet creation with:
+        a. Professional formatting and styling
+        b. Dynamic column sizing
+        c. Filter headers display
+        d. Empty dataset handling
+
+2. Data Flow:
+    - Receives filter parameters from calling function
+    - Fetches data from Incident collection
+    - Transforms MongoDB documents to Excel rows
+    - Applies consistent styling using STYLES configuration
+    - Saves report to configured export directory
+
+3. Key Features:
+    - Parameter Validation:
+        - Valid DRC commission rules: "PEO TV" or "BB"
+        - Date format enforcement (YYYY-MM-DD)
+        - Date range validation
+    - Error Handling:
+        - Comprehensive validation errors
+        - Database operation failures
+        - File system permissions
+    - Reporting:
+        - Automatic filename generation with timestamp
+        - Empty dataset handling
+        - Console and log feedback
+
+4. Configuration:
+    - Export path determined by ConfigLoaderSingleton
+    - Styles managed through style_loader.py
+    - Column headers defined in DIRECT_LOD_HEADERS constant
+
+5. Integration Points:
+    - Uses MongoDBConnectionSingleton for database access
+    - Leverages application-wide logging
+    - Called by external task handlers (not shown in code)
+
+Technical Specifications:
+    - Input Parameters:
+        - from_date/to_date: String (YYYY-MM-DD format)
+        - drc_commision_rule: String ("PEO TV" or "BB")
+    - Output:
+        - Excel file with standardized naming convention (direct_lod_incidents_task_[timestamp].xlsx)
+        - Returns boolean success status
+    - Collections Accessed:
+        - Incident (primary data source)
+        - Filters specifically for "Incident_Status": "Direct LOD"
+'''
+
 from datetime import datetime, timedelta
 from bson import ObjectId
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
-import os
-from pymongo import MongoClient
+from utils.connectionMongo import MongoDBConnectionSingleton
+from logging import getLogger
+from tasks.config_loader import ConfigLoaderSingleton
 
-logger = logging.getLogger('excel_data_writer')
+logger = getLogger('appLogger')
 
 DIRECT_LOD_HEADERS = [
     "Incident_Id", "Incident_Status", "Account_Num", "Amount",
@@ -19,27 +91,22 @@ DIRECT_LOD_HEADERS = [
 def excel_direct_lod_detail(from_date, to_date, drc_commision_rule):
     """Fetch and export 'direct LOD' incidents from Incident collection with a given Task_Id"""
 
+   
     try:
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client["DRS"]
-        logger.info(f"Connected to MongoDB successfully | DRS")
+            # Get export directory from config
+            export_dir = ConfigLoaderSingleton().get_export_path()
+            export_dir.mkdir(parents=True, exist_ok=True)
 
-    except Exception as err:
-        print("Connection error")
-        logger.error(f"MongoDB connection failed: {str(err)}")
-        return False
-
-    else:
-        try:
-            collection = db["Incident"]
-            query = {"Incident_Status": "Direct LOD"}
+            db = MongoDBConnectionSingleton().get_database()
+            incident_collection = db["Incident"]
+            direct_lod_query = {"Incident_Status": "Direct LOD"}
 
             # Validate and apply drc_commision_rule filter
             if drc_commision_rule is not None:
                 if drc_commision_rule == "PEO TV":
-                    query["drc_commision_rule"] = {"$regex": f"^{drc_commision_rule}$"}
+                    direct_lod_query["drc_commision_rule"] = {"$regex": f"^{drc_commision_rule}$"}
                 elif drc_commision_rule == "BB":
-                    query["drc_commision_rule"] = drc_commision_rule
+                    direct_lod_query["drc_commision_rule"] = drc_commision_rule
                 else:
                     raise ValueError(f"Invalid drc_commision_rule '{drc_commision_rule}'. Must be 'PEO TV', 'BB'")
             
@@ -57,7 +124,7 @@ def excel_direct_lod_detail(from_date, to_date, drc_commision_rule):
                         raise ValueError("to_date cannot be earlier than from_date")
 
                     # Construct query                  
-                    query["Created_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
+                    direct_lod_query["Created_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
 
                 except ValueError as ve:
                     if str(ve).startswith("to_date"):
@@ -65,16 +132,14 @@ def excel_direct_lod_detail(from_date, to_date, drc_commision_rule):
                     raise ValueError(f"Invalid date format. Use 'YYYY-MM-DD'. Error: {str(ve)}")
                 
                 
-            logger.info(f"Executing query on Incident for direct LOD : {query}")
-            incidents = list(collection.find(query))
+            logger.info(f"Executing query on Incident for direct LOD : {direct_lod_query}")
+            incidents = list(incident_collection.find(direct_lod_query))
             logger.info(f"Found {len(incidents)} matching direct LOD incident")
 
             # Export to Excel
-            output_dir = "exports"
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"direct_lod_incidents_task_{timestamp}.xlsx"
-            filepath = os.path.join(output_dir, filename)
-            os.makedirs(output_dir, exist_ok=True)
+            filepath = export_dir / filename
 
             wb = Workbook()
             wb.remove(wb.active)
@@ -94,18 +159,16 @@ def excel_direct_lod_detail(from_date, to_date, drc_commision_rule):
                 print(f"\nSuccessfully exported {len(incidents)} direct LOD records to: {filepath}")
             return False
 
-        except ValueError as ve:
-            logger.error(f"Validation error: {str(ve)}")
-            print(f"Error: {str(ve)}")
-            return False
-        except Exception as e:
-            logger.error(f"Export failed: {str(e)}", exc_info=True)
-            print(f"\nError during export: {str(e)}")
-            return False
-        finally:
-            if client:
-                client.close()
-                logger.info("MongoDB connection closed")
+    except ValueError as ve:
+        logger.error(f"Validation error: {str(ve)}")
+        print(f"Error: {str(ve)}")
+        return False
+    except Exception as e:
+        logger.error(f"Export failed: {str(e)}", exc_info=True)
+        print(f"\nError during export: {str(e)}")
+        return False
+        
+                
 
 def create_direct_lod_table(wb, data, filters=None):
     """Create formatted Excel sheet for Direct LOD incidents"""

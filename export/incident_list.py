@@ -1,8 +1,8 @@
 '''
 Purpose: This module handles the export of incident data from MongoDB to formatted Excel reports
-Created Date: 2025-01-18
+Created Date: 2025-03-20
 Created By: Aruna Jayaweera (ajayaweerau@gmail.com)
-Last Modified Date: 2024-02-20
+Last Modified Date: 2025-05-20
 Modified By: Aruna Jayaweera (ajayaweerau@gmail.com)
 Version: Python 3.12
 Dependencies:
@@ -80,8 +80,6 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
-import os
-import logging.config
 from pymongo import MongoClient
 from utils.connectionMongo import MongoDBConnectionSingleton
 from utils.logger import SingletonLogger
@@ -154,17 +152,13 @@ def excel_incident_detail(action_type, status, from_date, to_date):
                     if str(ve).startswith("to_date"):
                         raise
                     raise ValueError(f"Invalid date format. Use 'YYYY-MM-DD'. Error: {str(ve)}")
-
             
             # Log and execute query
             logger.info(f"Executing query: {incident_query}")
             incidents = list(incident_log_collection.find(incident_query))  # Fetch data into an array
             logger.info(f"Found {len(incidents)} matching incidents")
 
-           
-
             # Export to Excel even if no incidents are found
-        
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"incidents_details_{timestamp}.xlsx"
             filepath = export_dir / filename
@@ -185,9 +179,6 @@ def excel_incident_detail(action_type, status, from_date, to_date):
             else:
                 print(f"\nSuccessfully exported {len(incidents)} records to: {filepath}")
             return True
-
-            
-
 
     except ValueError as ve:
         logger.error(f"Validation error: {str(ve)}")

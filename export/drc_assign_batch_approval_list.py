@@ -1,17 +1,98 @@
-import logging
+'''
+Purpose: This module handles the export of DRC (District Revenue Center) batch approval data from MongoDB to formatted Excel reports
+Created Date: 2025-01-18
+Created By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Last Modified Date: 2024-02-20
+Modified By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Version: Python 3.12
+Dependencies:
+    - pymongo (for MongoDB connectivity)
+    - openpyxl (for Excel file operations)
+    - python-dotenv (for environment variables)
+    - logging (for execution tracking)
+
+Related Files:
+    - task_handler.py (initiates the export process)
+    - config_loader.py (provides export path configuration)
+    - style_loader.py (handles Excel styling)
+    - connectionMongo.py (database connection handler)
+
+Program Description:
+1. Core Functionality:
+    - excel_drc_assign_batch_approval(): Main export function that:
+        a. Validates approver_ref parameter
+        b. Constructs MongoDB query for batch approval data
+        c. Executes query against Batch_Approval_log collection
+        d. Generates formatted Excel report
+    - create_drc_assign_batch_approval_table(): Handles Excel sheet creation with:
+        a. Professional formatting and styling
+        b. Dynamic column sizing
+        c. Filter headers display
+        d. Empty dataset handling
+
+2. Data Flow:
+    - Receives approver_ref parameter from calling function
+    - Fetches data from Batch_Approval_log collection
+    - Transforms MongoDB documents to Excel rows with proper formatting
+    - Applies consistent styling using STYLES configuration
+    - Saves report to configured export directory
+
+3. Key Features:
+    - Parameter Validation:
+        - Valid approver_ref values: "k1", "k2"
+    - Data Formatting:
+        - Converts ObjectId to string for Batch_id
+        - Formats datetime objects for created_dtm
+    - Error Handling:
+        - Comprehensive validation errors
+        - Database operation failures
+        - File system permissions
+    - Reporting:
+        - Automatic filename generation with timestamp (drc_assign_batch_approval_[timestamp].xlsx)
+        - Empty dataset handling with headers
+        - Console and log feedback
+
+4. Configuration:
+    - Export path determined by ConfigLoaderSingleton
+    - Styles managed through style_loader.py
+    - Column headers defined in DRC_ASSIGN_BATCH_APPROVAL_HEADERS constant:
+        * Batch_id
+        * created_dtm
+        * drc_commision_rule
+        * approval_type
+        * case_count
+        * total_arrears
+
+5. Integration Points:
+    - Called by task handlers for DRC batch approval reporting
+    - Uses MongoDBConnectionSingleton for database access
+    - Leverages application-wide logging
+
+Technical Specifications:
+    - Input Parameters:
+        - approver_ref: String (predefined values "k1" or "k2")
+    - Output:
+        - Excel file with standardized naming convention
+        - Returns boolean success status
+    - Collections Accessed:
+        - Batch_Approval_log (primary data source)
+    - Special Processing:
+        - Handles ObjectId and datetime conversions
+        - Maintains consistent formatting for empty result sets
+'''
+
 from datetime import datetime, timedelta
 from bson import ObjectId
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
-import os
-from utils.connectDB import get_db_connection
-import logging.config
-from utils.config_loader import get_config
-from pymongo import MongoClient
+from utils.connectionMongo import MongoDBConnectionSingleton
+from logging import getLogger
+from tasks.config_loader import ConfigLoaderSingleton
 
-logger = logging.getLogger('excel_data_writer')
+logger = getLogger('appLogger')
+
 
 DRC_ASSIGN_BATCH_APPROVAL_HEADERS = [
     "Batch_id", "created_dtm", "drc_commision_rule", "approval_type", "case_count", "total_arrears"
@@ -19,38 +100,33 @@ DRC_ASSIGN_BATCH_APPROVAL_HEADERS = [
 
 def excel_drc_assign_batch_approval(approver_ref):
     """Fetch and export DRC assign batch approval data based on validated approver_ref parameter"""
+    
     try:
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client["DRS"]
-        logger.info(f"Connected to MongoDB successfully | DRS")
+            # Get export directory from config
+            export_dir = ConfigLoaderSingleton().get_export_path()
+            export_dir.mkdir(parents=True, exist_ok=True)
 
-    except Exception as err:
-        print("Connection error")
-        logger.error(f"MongoDB connection failed: {str(err)}")
-        return False
-    else:
-        try:
-            collection = db["Batch_Approval_log"]
-            query = {}
+            db = MongoDBConnectionSingleton().get_database()
+            batch_approval_collection = db["Batch_Approval_log"]
+            batch_approval_query = {}
 
             # Check approver_ref
             if approver_ref is not None:
                 if approver_ref in ["k1", "k2"]:
-                    query["approver_ref"] = approver_ref
+                    batch_approval_query["approver_ref"] = approver_ref
                 else:
                     raise ValueError("approver_ref must be 'k1' or 'k2'")
 
             # Log and execute query
-            logger.info(f"Executing query: {query}")
-            batches = list(collection.find(query))
+            logger.info(f"Executing query: {batch_approval_query}")
+            batches = list(batch_approval_collection.find(batch_approval_query))
             logger.info(f"Found {len(batches)} matching batch records")
 
             # Export to Excel even if no batches are found
             output_dir = "exports"
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"drc_assign_batch_approval_{timestamp}.xlsx"
-            filepath = os.path.join(output_dir, filename)
-            os.makedirs(output_dir, exist_ok=True)
+            filepath = export_dir / filename
 
             wb = Workbook()
             wb.remove(wb.active)
@@ -67,18 +143,15 @@ def excel_drc_assign_batch_approval(approver_ref):
                 print(f"\nSuccessfully exported {len(batches)} records to: {filepath}")
             return True
 
-        except ValueError as ve:
-            logger.error(f"Validation error: {str(ve)}")
-            print(f"Error: {str(ve)}")
-            return False
-        except Exception as e:
-            logger.error(f"Export failed: {str(e)}", exc_info=True)
-            print(f"\nError during export: {str(e)}")
-            return False
-        finally:
-            if client:
-                client.close()
-                logger.info("MongoDB connection closed")
+    except ValueError as ve:
+        logger.error(f"Validation error: {str(ve)}")
+        print(f"Error: {str(ve)}")
+        return False
+    except Exception as e:
+        logger.error(f"Export failed: {str(e)}", exc_info=True)
+        print(f"\nError during export: {str(e)}")
+        return False
+        
 
 def create_drc_assign_batch_approval_table(wb, data, filters=None):
     """Create formatted Excel sheet with DRC assign batch approval data, including headers even if no data"""
