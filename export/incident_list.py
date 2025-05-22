@@ -1,4 +1,76 @@
-"This file indicate fetch incident details acording to relevant parameters and export excel file"
+'''
+Purpose: This module handles the export of incident data from MongoDB to formatted Excel reports
+Created Date: 2025-01-18
+Created By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Last Modified Date: 2024-02-20
+Modified By: Aruna Jayaweera (ajayaweerau@gmail.com)
+Version: Python 3.12
+Dependencies:
+    - pymongo (for MongoDB connectivity)
+    - openpyxl (for Excel file operations)
+    - python-dotenv (for environment variables)
+    - logging (for execution tracking)
+Related Files:
+    - task_handler.py (initiates the export process)
+    - config_loader.py (provides export path configuration)
+    - style_loader.py (handles Excel styling)
+    - connectionMongo.py (database connection handler)
+
+Program Description:
+1. Core Functionality:
+    - excel_incident_detail(): Main export function that:
+        a. Validates input parameters (action_type, status, date range)
+        b. Constructs MongoDB query based on filters
+        c. Executes query and processes results
+        d. Generates formatted Excel report
+    - create_incident_table(): Handles Excel sheet creation with:
+        a. Professional formatting and styling
+        b. Dynamic column sizing
+        c. Filter headers display
+        d. Empty dataset handling
+
+2. Data Flow:
+    - Receives filter parameters from TaskHandler
+    - Fetches data from Incident_log collection
+    - Transforms MongoDB documents to Excel rows
+    - Applies consistent styling using STYLES configuration
+    - Saves report to configured export directory
+
+3. Key Features:
+    - Parameter Validation:
+        - Valid action_types: "collect arrears", "collect CPE", "collect arrears and CPE"
+        - Valid statuses: "Incident Open", "Incident close", "Incident reject"
+        - Date format enforcement (YYYY-MM-DD)
+    - Error Handling:
+        - Comprehensive validation errors
+        - Database operation failures
+        - File system permissions
+    - Reporting:
+        - Automatic filename generation with timestamp
+        - Empty dataset handling
+        - Console and log feedback
+
+4. Configuration:
+    - Export path determined by ConfigLoaderSingleton
+    - Styles managed through style_loader.py
+    - Column headers defined in INCIDENT_HEADERS constant
+
+5. Integration Points:
+    - Called by TaskHandlers.handle_task_20()
+    - Uses MongoDBConnectionSingleton for database access
+    - Leverages application-wide logging
+
+Technical Specifications:
+    - Input Parameters:
+        - action_type: String (predefined values)
+        - status: String (predefined values)
+        - from_date/to_date: String (YYYY-MM-DD format)
+    - Output:
+        - Excel file with standardized naming convention
+        - Returns boolean success status
+    - Collections Accessed:
+        - Incident_log (primary data source)
+'''
 
 
 import logging
@@ -14,6 +86,8 @@ from pymongo import MongoClient
 from utils.connectionMongo import MongoDBConnectionSingleton
 from utils.logger import SingletonLogger
 from logging import getLogger
+import platform
+from tasks.config_loader import ConfigLoaderSingleton
 
 logger = getLogger('appLogger')
 
@@ -28,19 +102,23 @@ def excel_incident_detail(action_type, status, from_date, to_date):
 
    
     try:   
+            # Get export directory from config
+            export_dir = ConfigLoaderSingleton().get_export_path()
+            export_dir.mkdir(parents=True, exist_ok=True)
+
             db = MongoDBConnectionSingleton().get_database()
             incident_log_collection = db["Incident_log"]
-            query = {} 
+            incident_query = {} 
 
             # Check each parameter and build query
             # Check action_type
             if action_type is not None:
                 if action_type == "collect arrears and CPE":
-                    query["Actions"] = {"$regex": f"^{action_type}$"}
+                    incident_query["Actions"] = {"$regex": f"^{action_type}$"}
                 elif action_type == "collect arrears":
-                    query["Actions"] = action_type
+                    incident_query["Actions"] = action_type
                 elif action_type == "collect CPE":
-                    query["Actions"] = action_type
+                    incident_query["Actions"] = action_type
                 else:
                     raise ValueError(f"Invalid action_type '{action_type}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
             
@@ -48,11 +126,11 @@ def excel_incident_detail(action_type, status, from_date, to_date):
             # Check status
             if status is not None:
                 if status == "Incident Open":
-                    query["Incident_Status"] = {"$regex": f"^{status}$"}
+                    incident_query["Incident_Status"] = {"$regex": f"^{status}$"}
                 elif status == "Incident close":
-                    query["Incident_Status"] = status
+                    incident_query["Incident_Status"] = status
                 elif status == "Incident reject":
-                    query["Incident_Status"] = status
+                    incident_query["Incident_Status"] = status
                 else:
                     raise ValueError(f"Invalid status '{status}'. Must be 'Incident Open', 'Incident Close', or 'Incident Reject'")
 
@@ -70,7 +148,7 @@ def excel_incident_detail(action_type, status, from_date, to_date):
                         raise ValueError("to_date cannot be earlier than from_date")
                     
                    # Construct query                  
-                    query["Created_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
+                    incident_query["Created_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
 
                 except ValueError as ve:
                     if str(ve).startswith("to_date"):
@@ -79,18 +157,17 @@ def excel_incident_detail(action_type, status, from_date, to_date):
 
             
             # Log and execute query
-            logger.info(f"Executing query: {query}")
-            incidents = list(incident_log_collection.find(query))  # Fetch data into an array
+            logger.info(f"Executing query: {incident_query}")
+            incidents = list(incident_log_collection.find(incident_query))  # Fetch data into an array
             logger.info(f"Found {len(incidents)} matching incidents")
 
            
 
             # Export to Excel even if no incidents are found
-            output_dir = "exports"
+        
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"incidents_details_{timestamp}.xlsx"
-            filepath = os.path.join(output_dir, filename)
-            os.makedirs(output_dir, exist_ok=True)
+            filepath = export_dir / filename
 
             wb = Workbook()
             wb.remove(wb.active)
@@ -121,7 +198,6 @@ def excel_incident_detail(action_type, status, from_date, to_date):
         print(f"\nError during export: {str(e)}")
         return False
     
-
 
 def create_incident_table(wb, data, filters=None):
     """Create formatted Excel sheet with filtered incident data, including headers even if no data"""

@@ -3,6 +3,7 @@ import threading
 import configparser
 from pathlib import Path
 import logging
+import platform
 
 logger = logging.getLogger('appLogger')
 
@@ -48,3 +49,20 @@ class ConfigLoaderSingleton:
             return []
 
         return [int(key) for key in self.config[section].keys() if key.isdigit()]
+
+
+    def get_export_path(self):
+        """Get export path from config based on operating system"""
+        if not self.config or 'EXCEL_EXPORT_PATH' not in self.config:
+            raise ValueError("Export path configuration missing")
+        
+        system = platform.system()
+        try:
+            if system == 'Windows':
+                return Path(self.config['EXCEL_EXPORT_PATH']['WIN_DB'])
+            elif system == 'Linux':
+                return Path(self.config['EXCEL_EXPORT_PATH']['LIN_DB'])
+            else:
+                raise OSError(f"Unsupported operating system: {system}")
+        except KeyError as e:
+            raise ValueError(f"Missing export path configuration for {system}") from e

@@ -1,8 +1,13 @@
 General Purpose - This program is responsible for export excel files.
 
+(/tasks/)
+config_loader.py - This code loads settings from a config file using a thread-safe Singleton pattern.
+task_handler.py - This code defines a class to handle tasks by calling the export functions and logs whether it succeeds or fails.
 
-(/export/)
-task_processor.py   - This program is responsible for get task .
+
+(/manipulation/)
+task_manager.py - This code manages and runs tasks by reading task IDs from the config, fetching open tasks from MongoDB, and calling the correct handler to execute each task.
+
 
 ***Functions***
 
@@ -10,13 +15,37 @@ task_processor.py   - This program is responsible for get task .
 1.excel_incident_details - fetch incident list acording to parameters.
 
 (/export/cpe_list.py)
-2.excel_cpe_list  - fetch incidents which action "collect cpe"
+2.excel_cpe_list  - fetch incidents, action = collect cpe
 
 (/export/direct_lod.py)
-3.excel_direct_lod - fetch incidents which incident status " direct lod." 
+3.excel_direct_lod - fetch incidents, incident status = direct lod 
 
 (/export/rejected_list.py)
 4.excel_rejected_details - fetch rejected incidents. 
 
 (/export/drc_assign_batch_approval_list.py)
-4.excel_drc_assign_batch_approval - fetch rejected incidents. 
+5.excel_drc_assign_batch_approval - fetch drc batch approval list.
+
+(/export/drc_assign_manager_approval_list.py)
+6.excel_drc_approval_detail - fetch drc asign manager approval list.
+
+(/export/pending_reject_list.py)
+7.excel_pending_reject_incident - fetch pending reject incident list.
+
+(/export/request_log.py)
+8.excel_request_log_detail - fetch request log data.
+
+(/export/request_response_log.py)
+9.excel_case_detail - fetch case data.
+
+(/export/incident_open_for_distribution.py)
+10.excel_incident_open_distribution - fetch all open incidents.
+
+(/export/case_distribution_drc_summary_drc_id.py)
+11.excel_drc_summary_detail - fetch drc summaty details.
+
+(/export/case_distribution_drc_transaction.py)
+12.excel_case_distribution_detail - fetch case distribution drc transaction data.
+
+(/export/drc_summary_rtom.py)
+13.excel_drc_summary_rtom_detail - fetch drc summary details.
