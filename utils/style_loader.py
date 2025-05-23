@@ -3,6 +3,7 @@ from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 import os
 
 def load_table_styles():
+    
     """Load styles from table_format.ini configuration file"""
     config = ConfigParser()
     config.read(os.path.join('config', 'table_format.ini'))

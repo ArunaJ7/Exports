@@ -5,6 +5,7 @@ import logging.config
 import configparser
 
 class SingletonLogger:
+    #
     _instances = {}
     _configured = False
 

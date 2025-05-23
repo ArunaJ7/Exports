@@ -65,8 +65,7 @@ from export.incident_open_for_distribution import excel_incident_open_distributi
 logger = logging.getLogger('appLogger')
 
 class TaskHandlers:
-    def __init__(self, db_client):
-        self.db_client = db_client
+    
 
     def handle_task_20(self, action_type=None, status=None, from_date=None, to_date=None):
         """Handles Incident Export Task (Task ID 20)"""
@@ -78,3 +77,5 @@ class TaskHandlers:
             logger.info("Incident report successfully exported.")
         else:
             logger.error("Failed to export incident report.")
+
+

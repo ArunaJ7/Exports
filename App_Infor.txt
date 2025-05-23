@@ -1,12 +1,18 @@
 General Purpose - This program is responsible for export excel files.
+Application type - console Application
+
+***folder hierarchy***
 
 (/tasks/)
 config_loader.py - This code loads settings from a config file using a thread-safe Singleton pattern.
-task_handler.py - This code defines a class to handle tasks by calling the export functions and logs whether it succeeds or fails.
+task_handler.py - The class to handle tasks by calling the export functions
+                 logs whether it succeeds or fails.
 
 
 (/manipulation/)
-task_manager.py - This code manages and runs tasks by reading task IDs from the config, fetching open tasks from MongoDB, and calling the correct handler to execute each task.
+task_manager.py - This code manages and runs tasks by reading task IDs from the config, 
+                  *fetching open tasks from MongoDB,
+                  *calling the correct handler to execute each task.
 
 
 ***Functions***

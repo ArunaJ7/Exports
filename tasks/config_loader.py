@@ -52,16 +52,21 @@ class ConfigLoaderSingleton:
 
 
     def get_export_path(self):
-        """Get export path from config based on operating system"""
-        if not self.config or 'EXCEL_EXPORT_PATH' not in self.config:
-            raise ValueError("Export path configuration missing")
+        """Get export path from config based on environment and operating system"""
+        if not self.config or not self.environment:
+            raise ValueError("Export path configuration missing or environment not set")
+
+
+        section = f'EXCEL_EXPORT_PATH_{self.environment}'
+        if section not in self.config:
+            raise ValueError(f"Missing section [{section}] in config file")
         
         system = platform.system()
         try:
             if system == 'Windows':
-                return Path(self.config['EXCEL_EXPORT_PATH']['WIN_DB'])
+                return Path(self.config[section]['WIN_EXPORT_PATH'])
             elif system == 'Linux':
-                return Path(self.config['EXCEL_EXPORT_PATH']['LIN_DB'])
+                return Path(self.config[section]['LIN_EXPORT_PATH'])
             else:
                 raise OSError(f"Unsupported operating system: {system}")
         except KeyError as e:

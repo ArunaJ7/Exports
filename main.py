@@ -72,7 +72,7 @@ from utils.logger import SingletonLogger
 SingletonLogger.configure()
 
 logger = SingletonLogger.get_logger('appLogger')
-db_logger = SingletonLogger.get_logger('dbLogger')
+
 
 def main():
     """Main entry point to run task processing"""
@@ -86,5 +86,4 @@ def main():
         raise
 
 if __name__ == "__main__":
-    logger.debug("Entering main execution block")
     main()

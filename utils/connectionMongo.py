@@ -6,6 +6,7 @@ from utils.logger import SingletonLogger
 
 
 class MongoDBConnectionSingleton:
+    #get connection
     _instance = None
     _lock = threading.Lock()
 
@@ -75,3 +76,5 @@ class MongoDBConnectionSingleton:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close_connection()
+
+
