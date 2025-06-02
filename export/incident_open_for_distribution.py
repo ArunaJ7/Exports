@@ -15,7 +15,7 @@ logger = getLogger('excel_data_writer')
 
 INCIDENT_OPEN_FOR_DISTRIBUTION_HEADERS = [
     "Id", "Incident_Status", "Account_Num", "Actions",
-    "Arrears", "Source_Type"
+    "Amount", "Source_Type"
 ]
 
 def excel_incident_open_distribution():
@@ -36,7 +36,7 @@ def excel_incident_open_distribution():
             incidents = list(incident_log_collection.find(incident_open_query))
             logger.info(f"Found {len(incidents)} matching incidents")
 
-            # Export to Excel even if no incidents are found
+            # Export to Excel even if no open incidents are found
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"incident_open_distribution_{timestamp}.xlsx"
             filepath = export_dir / filename

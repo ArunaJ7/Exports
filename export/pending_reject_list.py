@@ -108,9 +108,9 @@ def excel_pending_reject_incident(drc_commission_rules, from_date, to_date):
             export_dir.mkdir(parents=True, exist_ok=True)
 
             db = MongoDBConnectionSingleton().get_database()
-            incident_log_collection = db["Incident_log"]
+            incident_log_collection = db["Incident"]
 
-            pending_reject_query = {"Incident_Status": {"$in": ["Incident Pending", "Incident Reject"]}}
+            pending_reject_query = {"Incident_Status": {"$in": [ "Incident Reject"]}}
 
             # Check drc_commission_rules
             if drc_commission_rules is not None:

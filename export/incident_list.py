@@ -159,7 +159,7 @@ def excel_incident_detail(action_type, status, from_date, to_date):
             logger.info(f"Found {len(incidents)} matching incidents")
 
             # Export to Excel even if no incidents are found
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"incidents_details_{timestamp}.xlsx"
             filepath = export_dir / filename
 

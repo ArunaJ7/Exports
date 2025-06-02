@@ -63,44 +63,36 @@ class TaskManager:
         self.template_ids = ConfigLoaderSingleton().get_template_task_ids()
         
     def execute_tasks(self):
-        """Simplified task processing in a single method"""
         if not self.template_ids:
             logger.error("No template task IDs found in config.")
             return
 
-        try:
-            with MongoDBConnectionSingleton() as db:
-                task_handlers = TaskHandlers()
-                system_tasks_collection = db['System_tasks']
-                
-                for task_id in self.template_ids:
-                    try:
-                        # Get all open tasks for this template ID
-                        for task in system_tasks_collection.find({
-                            "Template_Task_Id": task_id,
-                            "task_status": "open"
-                        }):
-                            try:
-                                # Process each task
-                                template_id = task.get("Template_Task_Id")
-                                params = task.get("parameters", {})
+        task_handlers = TaskHandlers()
+        
+        for task_id in self.template_ids:
+            try:
+                # New connection for each template ID
+                with MongoDBConnectionSingleton() as db:
+                    system_tasks_collection = db['System_tasks']
+                    
+                    for task in system_tasks_collection.find({
+                        "Template_Task_Id": task_id,
+                        "task_status": "open"
+                    }):
+                        try:
+                            template_id = task.get("Template_Task_Id")
+                            params = task.get("parameters", {})
+                            handler = getattr(task_handlers, f"handle_task_{template_id}", None)
+                            if not handler:
+                                logger.error(f"No handler for template {template_id}")
+                                continue
                                 
-                                # Find and execute the handler
-                                handler = getattr(task_handlers, f"handle_task_{template_id}", None)
-                                if not handler:
-                                    logger.error(f"No handler for template {template_id}")
-                                    continue
-                                    
-                                handler(**params)
-                                logger.info(f"Successfully executed task {template_id}")
-                                
-                            except Exception as task_error:
-                                logger.error(f"Task {task.get('_id')} failed: {task_error}", exc_info=True)
-                                
-                    except Exception as template_error:
-                        logger.error(f"Error processing template {task_id}: {template_error}", exc_info=True)
-                        
-        except Exception as db_error:
-            logger.error(f"Database error: {db_error}", exc_info=True)
-
+                            handler(**params)
+                            logger.info(f"Successfully executed task {template_id}")
+                            
+                        except Exception as task_error:
+                            logger.error(f"Task {task.get('_id')} failed: {task_error}", exc_info=True)
+                            
+            except Exception as template_error:
+                logger.error(f"Error processing template {task_id}: {template_error}", exc_info=True)
 

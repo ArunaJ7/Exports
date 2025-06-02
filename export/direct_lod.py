@@ -101,17 +101,6 @@ def excel_direct_lod_detail(from_date, to_date, drc_commision_rule):
             incident_collection = db["Incident"]
             direct_lod_query = {"Incident_Status": "Direct LOD"}
 
-            # Validate and apply drc_commision_rule filter
-            if drc_commision_rule is not None:
-                if drc_commision_rule == "PEO TV":
-                    direct_lod_query["drc_commision_rule"] = {"$regex": f"^{drc_commision_rule}$"}
-                elif drc_commision_rule == "BB":
-                    direct_lod_query["drc_commision_rule"] = drc_commision_rule
-                else:
-                    raise ValueError(f"Invalid drc_commision_rule '{drc_commision_rule}'. Must be 'PEO TV', 'BB'")
-            
-
-
             # Apply date range filter
             if from_date is not None and to_date is not None:
                 try:
@@ -131,6 +120,16 @@ def excel_direct_lod_detail(from_date, to_date, drc_commision_rule):
                         raise
                     raise ValueError(f"Invalid date format. Use 'YYYY-MM-DD'. Error: {str(ve)}")
                 
+
+            # Validate and apply drc_commision_rule filter
+            if drc_commision_rule is not None:
+                if drc_commision_rule == "PEO TV":
+                    direct_lod_query["drc_commision_rule"] = {"$regex": f"^{drc_commision_rule}$"}
+                elif drc_commision_rule == "BB":
+                    direct_lod_query["drc_commision_rule"] = drc_commision_rule
+                else:
+                    raise ValueError(f"Invalid drc_commision_rule '{drc_commision_rule}'. Must be 'PEO TV', 'BB'")
+            
                 
             logger.info(f"Executing query on Incident for direct LOD : {direct_lod_query}")
             incidents = list(incident_collection.find(direct_lod_query))
