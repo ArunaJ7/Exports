@@ -62,6 +62,7 @@ from utils.style_loader import STYLES
 from utils.connectionMongo import MongoDBConnectionSingleton
 from export.incident_list import excel_incident_detail
 from export.incident_open_for_distribution import excel_incident_open_distribution
+from export.pending_reject_list import excel_pending_reject_incident
 from export.cpe_list import excel_cpe_detail
 from export.direct_lod import excel_direct_lod_detail
 from export.rejected_list import excel_rejected_detail
@@ -139,6 +140,40 @@ class TaskHandlers:
         else:
             logger.error("Failed to export open incident report.")
 
+
+
+# def handle_task_22(self, drc_commission_rules=None, from_date=None, to_date=None):
+#         """Handles pending reject Export Task (Task ID 22)"""
+#         logger.info("Executing pending reject Export Task (Task ID 22)...")
+        
+#         success = excel_pending_reject_incident(drc_commission_rules, from_date, to_date)
+
+#         if success:
+#             logger.info("Open pending reject report successfully exported.")
+
+#             try:
+#                 # Record the export in MongoDB
+#                 with MongoDBConnectionSingleton() as db:
+#                     downloads_collection = db['download']
+                    
+#                     record = {
+#                         "export_type": "incident_open_report",
+#                         "drc_commission_rules": drc_commission_rules,
+#                         "from_date": from_date,
+#                         "to_date": to_date,
+#                         "export_date": datetime.now(),
+#                         "download_status": "Pending Reject report exported"
+#                     }
+
+#                     result = downloads_collection.insert_one(record)
+#                     logger.info(f"Export record created with ID: {result.inserted_id}")
+                    
+#             except Exception as e:
+#                 logger.error(f"Failed to record export in database: {e}", exc_info=True)
+#                 # The export itself succeeded, so we still return True
+#                 return True
+#         else:
+#             logger.error("Failed to export pending reject incident report.")
 
 
 
