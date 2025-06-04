@@ -55,10 +55,10 @@ Future Extensibility:
     - Shared MongoDB client minimizes connection overhead
 '''
 
+
+# task_handler.py
 import logging
 from datetime import datetime
-import os
-from utils.style_loader import STYLES
 from utils.connectionMongo import MongoDBConnectionSingleton
 from export.incident_list import excel_incident_detail
 from export.incident_open_for_distribution import excel_incident_open_distribution
@@ -73,323 +73,64 @@ from export.case_distribution_drc_transaction_batch_list_distribution_array impo
 logger = logging.getLogger('appLogger')
 
 class TaskHandlers:
-    
-
-    def handle_task_20(self, action_type=None, status=None, from_date=None, to_date=None):
-        """Handles Incident Export Task (Task ID 20)"""
-        logger.info("Executing Incident Export Task (Task ID 20)...")
+    def handle_task(self, template_id: int, **params):
+        """Handle tasks using match statement (Python 3.10+ switch-case equivalent)"""
+        try:
+            match template_id:
+                case 20:
+                    return excel_incident_detail(
+                        params.get('action_type'),
+                        params.get('status'),
+                        params.get('from_date'),
+                        params.get('to_date')
+                    )
+                case 21:
+                    return excel_incident_open_distribution()
+                case 22:
+                    return excel_pending_reject_incident(
+                        params.get('drc_commission_rules'),
+                        params.get('from_date'),
+                        params.get('to_date')
+                    )
+                case 23:
+                    return excel_direct_lod_detail(
+                        params.get('from_date'),
+                        params.get('to_date'),
+                        params.get('drc_commission_rules')
+                    )
+                case 24:
+                    return excel_cpe_detail(
+                        params.get('from_date'),
+                        params.get('to_date'),
+                        params.get('drc_commission_rules')
+                    )
+                case 25:
+                    return excel_rejected_detail(
+                        params.get('action_type'),
+                        params.get('drc_commission_rules'),
+                        params.get('from_date'),
+                        params.get('to_date')
+                    )
+                case 26:
+                    return excel_case_distribution_detail(
+                        params.get('arrears_band'),
+                        params.get('drc_commission_rules'),
+                        params.get('from_date'),
+                        params.get('to_date')
+                    )
+                case 27:
+                    return excel_case_distribution_transaction_batch_detail(
+                        params.get('case_distribution_batch_id')
+                    )
+                case 28:
+                    return excel_case_distribution_transaction_batch_distribution_array_detail(
+                        params.get('case_distribution_batch_id'),
+                        params.get('batch_seq')
+                    )
+                case _:
+                    logger.error(f"No handler for template ID: {template_id}")
+                    raise ValueError(f"Unknown template_id: {template_id}")
         
-        success = excel_incident_detail(action_type, status, from_date, to_date)
-
-        if success:
-            logger.info("Incident report successfully exported.")
-
-            try:
-                    # Record the export in MongoDB
-                with MongoDBConnectionSingleton() as db:
-                    downloads_collection = db['download']
-                    
-                    record = {
-                        "export_type": "incident_report",
-                        "action_type": action_type,
-                        "status": status,
-                        "from_date": from_date,
-                        "to_date": to_date,
-                        "export_date": datetime.now(),
-                        "download_status": "Incident report exported"
-                    }
-
-                    result = downloads_collection.insert_one(record)
-                    logger.info(f"Export record created with ID: {result.inserted_id}")
-                    
-            except Exception as e:
-                logger.error(f"Failed to record export in database: {e}", exc_info=True)
-                # The export itself succeeded, so we still return True
-                return True
-        else:
-            logger.error("Failed to export incident report.")
-
-
-    def handle_task_21(self):
-        """Handles Open Incident Export Task (Task ID 21)"""
-        logger.info("Executing Open Incident Export Task (Task ID 21)...")
-        
-        success = excel_incident_open_distribution()
-
-        if success:
-            logger.info("Open Incident report successfully exported.")
-
-            try:
-                    # Record the export in MongoDB
-                with MongoDBConnectionSingleton() as db:
-                    downloads_collection = db['download']
-                    
-                    record = {
-                        "export_type": "incident_open_report",
-                        "export_date": datetime.now(),
-                        "download_status": "Incident open report exported"
-                    }
-
-                    result = downloads_collection.insert_one(record)
-                    logger.info(f"Export record created with ID: {result.inserted_id}")
-                    
-            except Exception as e:
-                logger.error(f"Failed to record export in database: {e}", exc_info=True)
-                # The export itself succeeded, so we still return True
-                return True
-        else:
-            logger.error("Failed to export open incident report.")
-
-
-
-# def handle_task_22(self, drc_commission_rules=None, from_date=None, to_date=None):
-#         """Handles pending reject Export Task (Task ID 22)"""
-#         logger.info("Executing pending reject Export Task (Task ID 22)...")
-        
-#         success = excel_pending_reject_incident(drc_commission_rules, from_date, to_date)
-
-#         if success:
-#             logger.info("Open pending reject report successfully exported.")
-
-#             try:
-#                 # Record the export in MongoDB
-#                 with MongoDBConnectionSingleton() as db:
-#                     downloads_collection = db['download']
-                    
-#                     record = {
-#                         "export_type": "incident_open_report",
-#                         "drc_commission_rules": drc_commission_rules,
-#                         "from_date": from_date,
-#                         "to_date": to_date,
-#                         "export_date": datetime.now(),
-#                         "download_status": "Pending Reject report exported"
-#                     }
-
-#                     result = downloads_collection.insert_one(record)
-#                     logger.info(f"Export record created with ID: {result.inserted_id}")
-                    
-#             except Exception as e:
-#                 logger.error(f"Failed to record export in database: {e}", exc_info=True)
-#                 # The export itself succeeded, so we still return True
-#                 return True
-#         else:
-#             logger.error("Failed to export pending reject incident report.")
-
-
-
-    # def handle_task_23(self, from_date=None, to_date=None, drc_commision_rule=None):
-    #     """Handles direct LOD Export Task (Task ID 23)"""
-    #     logger.info("Executing direct LOD Export Task (Task ID 23)...")
-        
-    #     success = excel_direct_lod_detail(from_date, to_date, drc_commision_rule)
-
-    #     if success:
-    #         logger.info("Direct LOD report successfully exported.")
-
-    #         try:
-    #                 # Record the export in MongoDB
-    #             with MongoDBConnectionSingleton() as db:
-    #                 downloads_collection = db['download']
-                    
-    #                 record = {
-    #                     "export_type": "direct_lod_report",
-    #                     "from_date": from_date,
-    #                     "to_date": to_date,
-    #                     "drc_commision_rule": drc_commision_rule,
-    #                     "export_date": datetime.now(),
-    #                     "download_status": "direct LOD report exported"
-    #                 }
-
-    #                 result = downloads_collection.insert_one(record)
-    #                 logger.info(f"Export record created with ID: {result.inserted_id}")
-                    
-    #         except Exception as e:
-    #             logger.error(f"Failed to record export in database: {e}", exc_info=True)
-    #             # The export itself succeeded, so we still return True
-    #             return True
-    #     else:
-    #         logger.error("Failed to export direct lod report.")
-
-
-
-    # def handle_task_24(self, from_date=None, to_date=None, drc_commision_rule=None):
-    #     """Handles CPE Export Task (Task ID 24)"""
-    #     logger.info("Executing CPE Export Task (Task ID 24)...")
-        
-    #     success = excel_cpe_detail(from_date, to_date, drc_commision_rule)
-
-    #     if success:
-    #         logger.info("CPE report successfully exported.")
-
-    #         try:
-    #                 # Record the export in MongoDB
-    #             with MongoDBConnectionSingleton() as db:
-    #                 downloads_collection = db['download']
-                    
-    #                 record = {
-    #                     "export_type": "cpe_report",
-    #                     "from_date": from_date,
-    #                     "to_date": to_date,
-    #                     "drc_commision_rule": drc_commision_rule,
-    #                     "export_date": datetime.now(),
-    #                     "download_status": "CPE report exported"
-    #                 }
-
-    #                 result = downloads_collection.insert_one(record)
-    #                 logger.info(f"Export record created with ID: {result.inserted_id}")
-                    
-    #         except Exception as e:
-    #             logger.error(f"Failed to record export in database: {e}", exc_info=True)
-    #             # The export itself succeeded, so we still return True
-    #             return True
-    #     else:
-    #         logger.error("Failed to export CPE report.")
-
-
-
-
-    
-
-    # def handle_task_25(self, actions=None, from_date=None, to_date=None, drc_commision_rule=None):
-    #     """Handles Rejected list Export Task (Task ID 25)"""
-    #     logger.info("Executing Rejected list Export Task (Task ID 25)...")
-        
-    #     success = excel_rejected_detail(actions, drc_commision_rule, from_date,to_date)
-
-    #     if success:
-    #         logger.info("Rejected report successfully exported.")
-
-    #         try:
-    #                 # Record the export in MongoDB
-    #             with MongoDBConnectionSingleton() as db:
-    #                 downloads_collection = db['download']
-                    
-    #                 record = {
-    #                     "export_type": "rejected_report",
-    #                     "actions": actions,
-    #                     "drc_commision_rule": drc_commision_rule,
-    #                     "from_date": from_date,
-    #                     "to_date": to_date,
-    #                     "export_date": datetime.now(),
-    #                     "download_status": "rejected report exported"
-    #                 }
-
-    #                 result = downloads_collection.insert_one(record)
-    #                 logger.info(f"Export record created with ID: {result.inserted_id}")
-                    
-    #         except Exception as e:
-    #             logger.error(f"Failed to record export in database: {e}", exc_info=True)
-    #             # The export itself succeeded, so we still return True
-    #             return True
-    #     else:
-    #         logger.error("Failed to export rejected report.")
-
-
-
-
-
-    # def handle_task_26(self, Arrears_band=None, drc_commision_rule=None, from_date=None, to_date=None):
-    #     """Handles case distribution drc transaction list Export Task (Task ID 26)"""
-    #     logger.info("Executing case distribution drc transaction list Export Task (Task ID 26)...")
-        
-    #     success = excel_case_distribution_detail(Arrears_band, drc_commision_rule, from_date, to_date)
-
-    #     if success:
-    #         logger.info("case distribution drc transaction report successfully exported.")
-
-    #         try:
-    #                 # Record the export in MongoDB
-    #             with MongoDBConnectionSingleton() as db:
-    #                 downloads_collection = db['download']
-                    
-    #                 record = {
-    #                     "export_type": "rejected_report",
-    #                     "arrears_band": Arrears_band,
-    #                     "drc_commision_rule": drc_commision_rule,
-    #                     "from_date": from_date,
-    #                     "to_date": to_date,
-    #                     "export_date": datetime.now(),
-    #                     "download_status": "case distribution drc transaction report exported"
-    #                 }
-
-    #                 result = downloads_collection.insert_one(record)
-    #                 logger.info(f"Export record created with ID: {result.inserted_id}")
-                    
-    #         except Exception as e:
-    #             logger.error(f"Failed to record export in database: {e}", exc_info=True)
-    #             # The export itself succeeded, so we still return True
-    #             return True
-    #     else:
-    #         logger.error("Failed to export case distribution transaction report.")
-
-
-
-
-
-
-    # def handle_task_27(self, case_distribution_batch_id=None):
-    #     """Handles case distribution drc transaction batch list Export Task (Task ID 27)"""
-    #     logger.info("Executing case distribution drc transaction batch list Export Task (Task ID 27)...")
-        
-    #     success = excel_case_distribution_transaction_batch_detail(case_distribution_batch_id)
-
-    #     if success:
-    #         logger.info("case distribution drc transaction batch report successfully exported.")
-
-    #         try:
-    #                 # Record the export in MongoDB
-    #             with MongoDBConnectionSingleton() as db:
-    #                 downloads_collection = db['download']
-                    
-    #                 record = {
-    #                     "export_type": "rejected_report",
-    #                     "case_distribution_batch_id": case_distribution_batch_id,
-    #                     "export_date": datetime.now(),
-    #                     "download_status": "case distribution drc transaction batch report exported"
-    #                 }
-
-    #                 result = downloads_collection.insert_one(record)
-    #                 logger.info(f"Export record created with ID: {result.inserted_id}")
-                    
-    #         except Exception as e:
-    #             logger.error(f"Failed to record export in database: {e}", exc_info=True)
-    #             # The export itself succeeded, so we still return True
-    #             return True
-    #     else:
-    #         logger.error("Failed to export case distribution drc transaction batch  report.")
-
-
-
-
-
-    # def handle_task_28(self, case_distribution_batch_id=None, batch_seq=None):
-    #     """Handles case distribution drc transaction batch list distribution Export Task (Task ID 28)"""
-    #     logger.info("Executing case distribution drc transaction batch list Export Task (Task ID 28)...")
-        
-    #     success = excel_case_distribution_transaction_batch_distribution_array_detail(case_distribution_batch_id, batch_seq)
-
-    #     if success:
-    #         logger.info("case distribution drc transaction batch list distribution report successfully exported.")
-
-    #         try:
-    #             #Record the export in MongoDB
-    #             with MongoDBConnectionSingleton() as db:
-    #                 downloads_collection = db['download']
-                    
-    #                 record = {
-    #                     "export_type": "rejected_report",
-    #                     "case_distribution_batch_id": case_distribution_batch_id,
-    #                     "batch_seq": batch_seq,
-    #                     "export_date": datetime.now(),
-    #                     "download_status": "case distribution drc transaction batch list distribution report exported"
-    #                 }
-
-    #                 result = downloads_collection.insert_one(record)
-    #                 logger.info(f"Export record created with ID: {result.inserted_id}")
-                    
-    #         except Exception as e:
-    #             logger.error(f"Failed to record export in database: {e}", exc_info=True)
-    #             # The export itself succeeded, so we still return True
-    #             return True
-    #     else:
-    #         logger.error("Failed to export case distribution drc transaction batch list distribution report.")
+        except Exception as e:
+            logger.error(f"Error executing task {template_id}: {str(e)}", exc_info=True)
+            raise

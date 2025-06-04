@@ -108,7 +108,7 @@ DISTRIBUTION_HEADERS = [
     "Case Count", "Approval"
 ]
 
-def excel_case_distribution_detail(Arrears_band, drc_commision_rule, from_date, to_date):
+def excel_case_distribution_detail(arrears_band, drc_commision_rule, from_date, to_date):
     """Fetch and export case distribution DRC transaction data based on validated parameters"""
    
     try:   
@@ -121,17 +121,17 @@ def excel_case_distribution_detail(Arrears_band, drc_commision_rule, from_date, 
             drc_transaction_query = {}
 
             # Check Arrears_band parameter
-            if Arrears_band is not None:
-                if Arrears_band == "0-30":
-                    drc_transaction_query["Arrears Band"] = Arrears_band
-                elif Arrears_band == "31-60":
-                    drc_transaction_query["Arrears Band"] = Arrears_band
-                elif Arrears_band == "61-90":
-                    drc_transaction_query["Arrears Band"] = Arrears_band
-                elif Arrears_band == "90+":
-                    drc_transaction_query["Arrears Band"] = Arrears_band
+            if arrears_band is not None:
+                if arrears_band == "AB-5_10":
+                    drc_transaction_query["Arrears Band"] = arrears_band
+                elif arrears_band == "AB-25_50":
+                    drc_transaction_query["Arrears Band"] = arrears_band
+                # elif Arrears_band == "61-90":
+                #     drc_transaction_query["Arrears Band"] = Arrears_band
+                # elif Arrears_band == "90+":
+                #     drc_transaction_query["Arrears Band"] = Arrears_band
                 else:
-                    raise ValueError(f"Invalid Arrears_band '{Arrears_band}'. Must be one of: 0-30, 31-60, 61-90, 90+")
+                    raise ValueError(f"Invalid Arrears_band '{arrears_band}'. Must be one of: 0-30, 31-60, 61-90, 90+")
 
             # Check drc_commision_rule parameter
             if drc_commision_rule is not None:
@@ -168,7 +168,7 @@ def excel_case_distribution_detail(Arrears_band, drc_commision_rule, from_date, 
             logger.info(f"Found {len(distributions)} matching distributions")
 
             # Export to Excel even if no distributions are found
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"case_distribution_details_{timestamp}.xlsx"
             filepath = export_dir / filename
 
@@ -176,7 +176,7 @@ def excel_case_distribution_detail(Arrears_band, drc_commision_rule, from_date, 
             wb.remove(wb.active)
 
             if not create_distribution_table(wb, distributions, {
-                "arrears_band": Arrears_band,
+                "arrears_band": arrears_band,
                 "drc_rule": drc_commision_rule,
                 "date_range": (from_dt if from_date is not None else None, to_dt if to_date is not None else None)
             }):

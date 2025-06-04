@@ -49,8 +49,7 @@ Task Types Supported:
     - Each task type requires a corresponding handler method in TaskHandlers class
 '''
 
-
-# task_manager.py (Simplified)
+# task_manager.py
 from tasks.config_loader import ConfigLoaderSingleton
 from tasks.task_handler import TaskHandlers
 import logging
@@ -68,31 +67,29 @@ class TaskManager:
             return
 
         task_handlers = TaskHandlers()
-        
-        for task_id in self.template_ids:
-            try:
-                # New connection for each template ID
-                with MongoDBConnectionSingleton() as db:
-                    system_tasks_collection = db['System_tasks']
-                    
-                    for task in system_tasks_collection.find({
-                        "Template_Task_Id": task_id,
-                        "task_status": "open"
-                    }):
-                        try:
-                            template_id = task.get("Template_Task_Id")
-                            params = task.get("parameters", {})
-                            handler = getattr(task_handlers, f"handle_task_{template_id}", None)
-                            if not handler:
-                                logger.error(f"No handler for template {template_id}")
-                                continue
-                                
-                            handler(**params)
-                            logger.info(f"Successfully executed task {template_id}")
-                            
-                        except Exception as task_error:
-                            logger.error(f"Task {task.get('_id')} failed: {task_error}", exc_info=True)
-                            
-            except Exception as template_error:
-                logger.error(f"Error processing template {task_id}: {template_error}", exc_info=True)
 
+        try:
+            with MongoDBConnectionSingleton() as db:
+                system_tasks_collection = db['System_tasks_inprogress']
+                
+                # Query for tasks with matching template IDs and open status
+                query = {
+                    "Template_Task_Id": { "$in": self.template_ids },
+                    "task_status": { "$in": ["open"] }
+                }
+
+                for task in system_tasks_collection.find(query):
+                    try:
+                        template_id = task.get("Template_Task_Id")
+                        params = task.get("parameters", {})
+                        
+                        # Call the unified handler with template_id and parameters
+                        task_handlers.handle_task(template_id, **params)
+                        logger.info(f"Successfully executed task {template_id}")
+                        
+                    except Exception as task_error:
+                        logger.error(f"Task {task.get('_id')} failed: {task_error}", exc_info=True)
+                        # Optionally update task status to 'failed' here
+
+        except Exception as db_error:
+            logger.error(f"Database operation failed: {db_error}", exc_info=True)

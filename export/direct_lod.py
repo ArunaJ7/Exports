@@ -136,7 +136,7 @@ def excel_direct_lod_detail(from_date, to_date, drc_commision_rule):
             logger.info(f"Found {len(incidents)} matching direct LOD incident")
 
             # Export to Excel
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"direct_lod_incidents_task_{timestamp}.xlsx"
             filepath = export_dir / filename
 
