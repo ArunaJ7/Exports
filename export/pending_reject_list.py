@@ -141,7 +141,7 @@ def excel_pending_reject_incident(drc_commission_rules, from_date, to_date):
             logger.info(f"Found {len(incidents)} matching incidents")
 
             # Export to Excel even if no incidents are found
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"pending_reject_incidents_{timestamp}.xlsx"
             filepath = export_dir / filename
 
@@ -155,6 +155,27 @@ def excel_pending_reject_incident(drc_commission_rules, from_date, to_date):
                 raise Exception("Failed to create pending reject incident sheet")
 
             wb.save(filepath)
+
+             # Write export record to Download collection
+            try:
+                download_collection = db["download"]
+                export_record = {
+                    "File_Name": filename,
+                    "File_Path": str(filepath),
+                    "Export_Timestamp": datetime.now(),
+                    "Exported_Record_Count": len(incidents),
+                    "Applied_Filters": {
+                        "DRC_Commision_Rule": drc_commission_rules,
+                        "From_Date": from_date,
+                        "To_Date": to_date
+                    }
+                }
+                download_collection.insert_one(export_record)
+                logger.info("Export details written to Download collection.")
+            except Exception as e:
+                logger.error(f"Failed to insert download record: {str(e)}", exc_info=True)
+
+
             if not incidents:
                 print(f"No pending reject incidents found matching the selected filters. Exported empty table to: {filepath}")
             else:

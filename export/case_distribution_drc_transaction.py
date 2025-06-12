@@ -126,12 +126,8 @@ def excel_case_distribution_detail(arrears_band, drc_commision_rule, from_date, 
                     drc_transaction_query["Arrears Band"] = arrears_band
                 elif arrears_band == "AB-25_50":
                     drc_transaction_query["Arrears Band"] = arrears_band
-                # elif Arrears_band == "61-90":
-                #     drc_transaction_query["Arrears Band"] = Arrears_band
-                # elif Arrears_band == "90+":
-                #     drc_transaction_query["Arrears Band"] = Arrears_band
                 else:
-                    raise ValueError(f"Invalid Arrears_band '{arrears_band}'. Must be one of: 0-30, 31-60, 61-90, 90+")
+                    raise ValueError(f"Invalid Arrears_band '{arrears_band}'. Must be one of: AB-5_10, AB-25_50")
 
             # Check drc_commision_rule parameter
             if drc_commision_rule is not None:
@@ -183,6 +179,28 @@ def excel_case_distribution_detail(arrears_band, drc_commision_rule, from_date, 
                 raise Exception("Failed to create distribution sheet")
 
             wb.save(filepath)
+
+             # Write export record to Download collection
+            try:
+                download_collection = db["download"]
+                export_record = {
+                    "File_Name": filename,
+                    "File_Path": str(filepath),
+                    "Export_Timestamp": datetime.now(),
+                    "Exported_Record_Count": len(distributions),
+                    "Applied_Filters": {
+                        "Arrears_Band": arrears_band,
+                        "DRC_commision_rule": drc_commision_rule,
+                        "From_Date": from_date,
+                        "To_Date": to_date
+                    }
+                }
+                download_collection.insert_one(export_record)
+                logger.info("Export details written to Download collection.")
+            except Exception as e:
+                logger.error(f"Failed to insert download record: {str(e)}", exc_info=True)
+
+
             if not distributions:
                 print(f"No distributions found matching the selected filters. Exported empty table to: {filepath}")
             else:

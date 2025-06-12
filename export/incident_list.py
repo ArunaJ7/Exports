@@ -174,6 +174,28 @@ def excel_incident_detail(action_type, status, from_date, to_date):
                 raise Exception("Failed to create incident sheet")
 
             wb.save(filepath)
+
+            # Write export record to Download collection
+            try:
+                download_collection = db["download"]
+                export_record = {
+                    "File_Name": filename,
+                    "File_Path": str(filepath),
+                    "Export_Timestamp": datetime.now(),
+                    "Exported_Record_Count": len(incidents),
+                    "Applied_Filters": {
+                        "Action": action_type,
+                        "Status": status,
+                        "From_Date": from_date,
+                        "To_Date": to_date
+                    }
+                }
+                download_collection.insert_one(export_record)
+                logger.info("Export details written to Download collection.")
+            except Exception as e:
+                logger.error(f"Failed to insert download record: {str(e)}", exc_info=True)
+
+
             if not incidents:
                 print("No incidents found matching the selected filters. Exported empty table to: {filepath}")
             else:

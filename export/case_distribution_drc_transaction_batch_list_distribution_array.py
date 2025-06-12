@@ -12,8 +12,7 @@ from tasks.config_loader import ConfigLoaderSingleton
 logger = getLogger('appLogger')
 
 DISTRIBUTION_TRANSACTION_BATCH_DISTRIBUTION_HEADERS = [
-    "RTOM", "DRC 1",
-    "DRC 2"
+    "case_distribution_batch_id", "batch_seq"
 ]
 
 def excel_case_distribution_transaction_batch_distribution_array_detail(case_distribution_batch_id, batch_seq):
@@ -55,7 +54,7 @@ def excel_case_distribution_transaction_batch_distribution_array_detail(case_dis
             logger.info(f"Found {len(distributions)} matching distributions")
 
             # Export to Excel even if no distributions are found
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"case_distribution_drc_transaction_batch_list_distribution_array_details_{timestamp}.xlsx"
             filepath = export_dir / filename
 
@@ -69,6 +68,26 @@ def excel_case_distribution_transaction_batch_distribution_array_detail(case_dis
                 raise Exception("Failed to create distribution drc transaction sheet")
 
             wb.save(filepath)
+
+             # Write export record to Download collection
+            try:
+                download_collection = db["download"]
+                export_record = {
+                    "File_Name": filename,
+                    "File_Path": str(filepath),
+                    "Export_Timestamp": datetime.now(),
+                    "Exported_Record_Count": len(distributions),
+                    "Applied_Filters": {
+                        "Case_Distribution_batch_id": case_distribution_batch_id,
+                        "Batch_Seq": batch_seq
+                    }
+                }
+                download_collection.insert_one(export_record)
+                logger.info("Export details written to Download collection.")
+            except Exception as e:
+                logger.error(f"Failed to insert download record: {str(e)}", exc_info=True)
+
+
             if not distributions:
                 print(f"No distributions found matching the selected filters. Exported empty table to: {filepath}")
             else:

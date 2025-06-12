@@ -177,7 +177,7 @@ def excel_cpe_detail(from_date, to_date, drc_commision_rule):
             logger.info(f"Found {len(incidents)} matching CPE incidents")
 
             # Export to Excel
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"cpe_incidents_{timestamp}.xlsx"
             filepath = export_dir / filename
 
@@ -193,6 +193,26 @@ def excel_cpe_detail(from_date, to_date, drc_commision_rule):
                 raise Exception("Failed to create CPE incident sheet")
 
             wb.save(filepath)
+
+            # Write export record to Download collection
+            try:
+                download_collection = db["download"]
+                export_record = {
+                    "File_Name": filename,
+                    "File_Path": str(filepath),
+                    "Export_Timestamp": datetime.now(),
+                    "Exported_Record_Count": len(incidents),
+                    "Applied_Filters": {
+                        "From_Date": from_date,
+                        "To_Date": to_date,
+                        "DRC_Commsion_Rule": drc_commision_rule
+                    }
+                }
+                download_collection.insert_one(export_record)
+                logger.info("Export details written to Download collection.")
+            except Exception as e:
+                logger.error(f"Failed to insert download record: {str(e)}", exc_info=True)
+
 
             if not incidents:
                 print("No CPE incidents found matching the selected filters. Exported empty table to: {filepath}")

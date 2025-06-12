@@ -37,7 +37,7 @@ def excel_incident_open_distribution():
             logger.info(f"Found {len(incidents)} matching incidents")
 
             # Export to Excel even if no open incidents are found
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"incident_open_distribution_{timestamp}.xlsx"
             filepath = export_dir / filename
          
@@ -49,6 +49,23 @@ def excel_incident_open_distribution():
                 raise Exception("Failed to create incident open distribution sheet")
 
             wb.save(filepath)
+
+            # Write export record to Download collection
+            try:
+                download_collection = db["download"]
+                export_record = {
+                    "File_Name": filename,
+                    "File_Path": str(filepath),
+                    "Export_Timestamp": datetime.now(),
+                    "Exported_Record_Count": len(incidents)
+                }
+                
+                download_collection.insert_one(export_record)
+                logger.info("Export details written to Download collection.")
+            except Exception as e:
+                logger.error(f"Failed to insert download record: {str(e)}", exc_info=True)
+
+
             if not incidents:
                 print(f"No open incidents found. Exported empty table to: {filepath}")
             else:
