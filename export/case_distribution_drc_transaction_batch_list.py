@@ -146,7 +146,7 @@ def create_distribution_table(wb, data, filters=None):
         
         # Data Table Headers
         header_row = row_idx
-        for col_idx, header in enumerate(DISTRIBUTION_HEADERS, 1):
+        for col_idx, header in enumerate(DISTRIBUTION_TRANSACTION_BATCH_HEADERS, 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=header)
             cell.font = STYLES['SubHeader_Style']['font']
             cell.fill = STYLES['SubHeader_Style']['fill']
@@ -158,7 +158,7 @@ def create_distribution_table(wb, data, filters=None):
         if data:
             for record in data:
                 row_idx += 1
-                for col_idx, header in enumerate(DISTRIBUTION_HEADERS, 1):
+                for col_idx, header in enumerate(DISTRIBUTION_TRANSACTION_BATCH_HEADERS, 1):
                     value = record.get(header, "")
                     # Handle date fields
                     if header == "Created Dtm" and isinstance(value, datetime):
@@ -173,11 +173,11 @@ def create_distribution_table(wb, data, filters=None):
                     cell.alignment = STYLES['Border_Style']['alignment']
         
         # Add AutoFilter to headers
-        last_col_letter = get_column_letter(len(DISTRIBUTION_HEADERS))
+        last_col_letter = get_column_letter(len(DISTRIBUTION_TRANSACTION_BATCH_HEADERS))
         ws.auto_filter.ref = f"{get_column_letter(1)}{header_row}:{last_col_letter}{header_row}"
         
         # Auto-adjust columns based on headers (and data if present)
-        for col_idx in range(1, len(DISTRIBUTION_HEADERS) + 1):
+        for col_idx in range(1, len(DISTRIBUTION_TRANSACTION_BATCH_HEADERS) + 1):
             col_letter = get_column_letter(col_idx)
             max_length = max(
                 len(str(cell.value)) if cell.value else 0
