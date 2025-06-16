@@ -69,7 +69,14 @@ from export.rejected_list import excel_rejected_detail
 from export.case_distribution_drc_transaction import excel_case_distribution_detail
 from export.case_distribution_drc_transaction_batch_list import excel_case_distribution_transaction_batch_detail
 from export.case_distribution_drc_transaction_batch_list_distribution_array import excel_case_distribution_transaction_batch_distribution_array_detail
-
+from export.drc_assign_batch_approval_list import drc_assign_batch_approval_list
+from export.drc_assign_manager_approval_list import drc_assign_manager_approval_list
+from export.case_distribution_drc_summary_drc_id import case_distribution_drc_summary_drc_id
+from export.request_log import request_log
+from export.request_response_log_list import request_response_log_list
+from export.digital_signatures_relavent_lod import digital_signatures_relavent_lod
+from export.each_lod_or_final_remider_case import each_lod_or_final_remider_case
+from export.proceed_lod_or_final_remider_list import proceed_lod_or_final_remider_list
 logger = logging.getLogger('appLogger')
 
 class TaskHandlers:
@@ -113,7 +120,7 @@ class TaskHandlers:
                     )
                 case 26:
                     return excel_case_distribution_detail(
-                        params.get('arrears_band'),
+                        params.get('current_arrears_band'),
                         params.get('drc_commission_rules'),
                         params.get('from_date'),
                         params.get('to_date')
@@ -127,6 +134,52 @@ class TaskHandlers:
                         params.get('case_distribution_batch_id'),
                         params.get('batch_seq')
                     )
+                case 30:
+                    return drc_assign_batch_approval_list(
+                        params.get('approver_type'),
+                        params.get('date_from'),        
+                        params.get('date_to'),
+                        params.get('approver_status'),
+                    )
+                case 33:
+                    return drc_assign_manager_approval_list()
+            
+                case 32:
+                    return case_distribution_drc_summary_drc_id(
+                        params.get('drc_id'),
+                        params.get('drc_name'), 
+                        params.get('case_distribution_batch_id')
+                    ) 
+                case 37:
+                    return request_log(
+                        params.get('deligate_user_id'),
+                        params.get('user_interaction_type'),
+                        params.get('drc_id'),
+                        params.get('from_date'),
+                        params.get('to_date'),
+                    )
+                case 38:
+                    return request_response_log_list(
+                        params.get('case_current_status'),
+                        params.get('to_date'),
+                        params.get('date_from'),
+                    )                                                                   
+                case 39:
+                    return digital_signatures_relavent_lod(
+                        params.get('case_current_status'),
+                    )   
+                case 40:    
+                    return each_lod_or_final_remider_case(
+                        params.get('case_current_status'),
+                        params.get('current_document_type')
+                    )   
+                case 41:    
+                    return proceed_lod_or_final_remider_list( 
+                        params.get('case_current_status'),
+                        params.get('current_document_type'),
+                        params.get('case_count')    
+                    )    
+                        
                 case _:
                     logger.error(f"No handler for template ID: {template_id}")
                     raise ValueError(f"Unknown template_id: {template_id}")
