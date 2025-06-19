@@ -8,7 +8,7 @@ from utils.style_loader import STYLES
 from logging import getLogger
 from pymongo import MongoClient
 from utils.connectionMongo import MongoDBConnectionSingleton
-from tasks.config_loader import ConfigLoaderSingleton
+from utils.config_loader import ConfigLoaderSingleton
 
 
 logger = getLogger('excel_data_writer')

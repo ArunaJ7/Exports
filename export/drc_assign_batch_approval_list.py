@@ -89,7 +89,7 @@ from openpyxl.utils import get_column_letter
 from utils.style_loader import STYLES
 from utils.connectionMongo import MongoDBConnectionSingleton
 from logging import getLogger
-from tasks.config_loader import ConfigLoaderSingleton
+from utils.config_loader import ConfigLoaderSingleton
 
 logger = getLogger('appLogger')
 

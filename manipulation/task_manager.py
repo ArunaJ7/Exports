@@ -50,7 +50,7 @@ Task Types Supported:
 '''
 
 # task_manager.py
-from tasks.config_loader import ConfigLoaderSingleton
+from utils.config_loader import ConfigLoaderSingleton
 from tasks.task_handler import TaskHandlers
 import logging
 from utils.connectionMongo import MongoDBConnectionSingleton

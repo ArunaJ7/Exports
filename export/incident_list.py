@@ -85,7 +85,7 @@ from utils.connectionMongo import MongoDBConnectionSingleton
 from utils.logger import SingletonLogger
 from logging import getLogger
 import platform
-from tasks.config_loader import ConfigLoaderSingleton
+from utils.config_loader import ConfigLoaderSingleton
 
 logger = getLogger('appLogger')
 
