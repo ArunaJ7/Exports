@@ -70,7 +70,7 @@ class TaskManager:
 
         try:
             with MongoDBConnectionSingleton() as db:
-                system_tasks_collection = db['System_tasks_inprogress']
+                system_tasks_collection = db['System_tasks_Inprogress']
                 
                 # Query for tasks with matching template IDs and open status
                 query = {

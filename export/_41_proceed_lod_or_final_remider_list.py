@@ -101,7 +101,7 @@ REJECTED_HEADERS = [
     "Filtered_Reason", "Rejected_Dtm","Rejected_By"
 ]
 
-def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
+def excel_proceed_lod_or_final_reminder_detail(case_current_status, current_document_type, case_count):
     """Fetch and export rejected incidents from Incident collection"""
 
         
@@ -115,43 +115,26 @@ def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
             reject_query = {"Incident_Status": "Incident Reject"}  # Fixed to only rejected incidents
 
             # Validate and apply actions filter
-            if actions is not None:
-                if actions == "collect CPE":
-                    reject_query["Actions"] = {"$regex": f"^{actions}$"}
-                elif actions == "collect arrears":
-                    reject_query["Actions"] = actions
-                elif actions == "collect arrears and CPE":
+            if case_current_status is not None:
+                if case_current_status == "collect CPE":
+                    reject_query["Actions"] = {"$regex": f"^{case_current_status}$"}
+                elif case_current_status == "collect arrears":
+                    reject_query["Actions"] = case_current_status
+                elif case_current_status == "collect arrears and CPE":
                     reject_query["Actions"] = actions
                 else:
                      raise ValueError(f"Invalid actions '{actions}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
 
-            # Validate and apply drc_commision_rule filter
-            if drc_commision_rule is not None:
-                if drc_commision_rule == "PEO TV":
-                  reject_query["drc_commision_rule"] = {"$regex": f"^{drc_commision_rule}$"}
-                elif drc_commision_rule == "BB":
-                  reject_query["drc_commision_rule"] = drc_commision_rule
+            # Validate and apply current_document_type filter
+            if current_document_type is not None:
+                if current_document_type == "PEO TV":
+                  reject_query["current_document_type"] = {"$regex": f"^{current_document_type}$"}
+                elif current_document_type == "BB":
+                  reject_query["current_document_type"] = current_document_type
                 else:
                      raise ValueError(f"Invalid actions '{actions}'. Must be 'PEO TV', 'BB'")
 
-            # Apply date range filter
-            if from_date is not None and to_date is not None:
-
-                try:
-                    # Check if from_date and to_date are in correct YYYY-MM-DD format
-                    from_dt = datetime.strptime(from_date, '%Y-%m-%d')
-                    to_dt = datetime.strptime(to_date, '%Y-%m-%d') + timedelta(days=1) - timedelta(seconds=1)
-                    
-                    # Validate date range
-                    if to_dt < from_dt:
-                        raise ValueError("to_date cannot be earlier than from_date")
-
-                    reject_query["Created_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
-
-                except ValueError as ve:
-                    if str(ve).startswith("to_date"):
-                        raise
-                    raise ValueError(f"Invalid date format. Use 'YYYY-MM-DD'. Error: {str(ve)}")
+           
 
 
             logger.info(f"Executing query on Incident for rejected incidents: {reject_query}")
@@ -178,7 +161,7 @@ def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
 
              # Write export record to Download collection
             try:
-                download_collection = db["download"]
+                download_collection = db["file_download_log"]
                 export_record = {
                     "File_Name": filename,
                     "File_Path": str(filepath),

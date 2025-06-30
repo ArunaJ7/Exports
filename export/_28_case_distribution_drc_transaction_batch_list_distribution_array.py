@@ -71,7 +71,7 @@ def excel_case_distribution_transaction_batch_distribution_array_detail(case_dis
 
              # Write export record to Download collection
             try:
-                download_collection = db["download"]
+                download_collection = db["file_download_log"]
                 export_record = {
                     "File_Name": filename,
                     "File_Path": str(filepath),

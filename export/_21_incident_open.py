@@ -52,7 +52,7 @@ def excel_incident_open_distribution():
 
             # Write export record to Download collection
             try:
-                download_collection = db["download"]
+                download_collection = db["file_download_log"]
                 export_record = {
                     "File_Name": filename,
                     "File_Path": str(filepath),

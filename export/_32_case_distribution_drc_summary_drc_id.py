@@ -99,7 +99,7 @@ DRC_SUMMARY_HEADERS = [
     "created_dtm", "drc_id", "drc", "case_count", "tot_arrease", "proceed_on"
 ]
 
-def excel_drc_summary_detail(drc, case_distribution_batch_id):
+def excel_drc_summary_detail(drc_id, drc, case_distribution_batch_id):
     """Fetch and export DRC summary details with a fixed Task_Id of 20 based on validated parameters"""
     
     

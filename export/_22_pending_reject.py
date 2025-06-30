@@ -1,17 +1,15 @@
 '''
-Purpose: This module handles the export of case distribution transaction data from MongoDB to formatted Excel reports
-Created Date: 2025-01-18  
+Purpose: This module handles the export of pending and rejected incident data from MongoDB to formatted Excel reports
+Created Date: 2025-01-18
 Created By: Aruna Jayaweera (ajayaweerau@gmail.com)
-Last Modified Date: 2024-02-20  
+Last Modified Date: 2024-02-20
 Modified By: Aruna Jayaweera (ajayaweerau@gmail.com)
 Version: Python 3.12
-
 Dependencies:
     - pymongo (for MongoDB connectivity)
     - openpyxl (for Excel file operations)
     - python-dotenv (for environment variables)
     - logging (for execution tracking)
-
 Related Files:
     - task_handler.py (initiates the export process)
     - config_loader.py (provides export path configuration)
@@ -20,12 +18,12 @@ Related Files:
 
 Program Description:
 1. Core Functionality:
-    - excel_case_distribution_detail(): Main export function that:
-        a. Validates input parameters (arrears band, DRC rule, date range)
-        b. Constructs MongoDB query for distribution data
-        c. Executes query against Case_Distribution_log collection
+    - excel_pending_reject_incident(): Main export function that:
+        a. Validates input parameters (DRC commission rules, date range)
+        b. Constructs MongoDB query for pending/rejected incidents
+        c. Executes query against Incident_log collection
         d. Generates formatted Excel report
-    - create_distribution_table(): Handles Excel sheet creation with:
+    - create_pending_reject_incident_table(): Handles Excel sheet creation with:
         a. Professional formatting and styling
         b. Dynamic column sizing
         c. Filter headers display
@@ -33,61 +31,55 @@ Program Description:
 
 2. Data Flow:
     - Receives filter parameters from calling function
-    - Fetches data from Case_Distribution_log collection
-    - Transforms MongoDB documents to Excel rows with proper formatting
+    - Fetches data from Incident_log collection with "Incident_Status" in ["Incident Pending", "Incident Reject"]
+    - Transforms MongoDB documents to Excel rows
     - Applies consistent styling using STYLES configuration
     - Saves report to configured export directory
 
 3. Key Features:
     - Parameter Validation:
-        - Valid arrears bands: "0-30", "31-60", "61-90", "91+"
-        - Validates DRC commission rule as non-empty string
+        - Validates DRC commission rules as non-empty list
         - Date format enforcement (YYYY-MM-DD)
-        - Date range validation (date_to cannot be earlier than date_from)
-    - Data Formatting:
-        - Formats datetime objects for Created Dtm
-        - Converts Case Count to integers
+        - Date range validation (to_date cannot be earlier than from_date)
     - Error Handling:
         - Comprehensive validation errors
         - Database operation failures
         - File system permissions
     - Reporting:
-        - Automatic filename generation with timestamp (case_distribution_details_[timestamp].xlsx)
+        - Automatic filename generation with timestamp (pending_reject_incidents_[timestamp].xlsx)
         - Empty dataset handling with headers
         - Console and log feedback
 
 4. Configuration:
     - Export path determined by ConfigLoaderSingleton
     - Styles managed through style_loader.py
-    - Column headers defined in DISTRIBUTION_HEADERS constant:
-        * Case Distribution Batch ID
-        * Created Dtm
-        * Distributed Status
-        * Action Type
-        * DRC Commission Rule
-        * Arrears Band
-        * Case Count
-        * Approval
+    - Column headers defined in PENDING_REJECT_INCIDENT_HEADERS constant:
+        * Incident_Id
+        * Incident_Status
+        * Account_Num
+        * Filtered_Reason
+        * Rejected_Dtm
+        * Source_Type
 
 5. Integration Points:
-    - Called by task handlers for case distribution reporting
+    - Called by task handlers for pending/rejected incident reporting
     - Uses MongoDBConnectionSingleton for database access
     - Leverages application-wide logging
 
 Technical Specifications:
     - Input Parameters:
-        - Arrears_band: String (predefined values)
-        - drc_commision_rule: String
-        - date_from/date_to: String (YYYY-MM-DD format)
+        - drc_commission_rules: List of strings (valid commission rules)
+        - from_date/to_date: String (YYYY-MM-DD format)
     - Output:
         - Excel file with standardized naming convention
         - Returns boolean success status
     - Collections Accessed:
-        - Case_Distribution_log (primary data source)
-    - Query Logic:
-        - Case-sensitive regex matching for DRC rules
-        - Exact matching for arrears bands
-        - Date range filtering on Created Dtm field
+        - Incident_log (primary data source)
+        - Filters for status in ["Incident Pending", "Incident Reject"]
+    - Special Data Handling:
+        - Converts ObjectId to string for Incident_Id
+        - Formats datetime objects for Rejected_Dtm
+        - Maintains headers even with empty result sets
 '''
 
 from datetime import datetime, timedelta
@@ -102,56 +94,41 @@ from utils.config_loader import ConfigLoaderSingleton
 
 logger = getLogger('appLogger')
 
-DISTRIBUTION_HEADERS = [
-    "Case Distribution Batch ID", "Created Dtm", "Distributed Status",
-    "Action Type", "DRC Commission Rule", "Arrears Band", 
-    "Case Count", "Approval"
+PENDING_REJECT_INCIDENT_HEADERS = [
+    "Incident_Id", "Incident_Status", "Account_Num", "Filtered_Reason",
+    "Rejected_Dtm", "Source_Type"
 ]
 
-def excel_case_distribution_detail(arrears_band, drc_commision_rule, from_date, to_date):
-    """Fetch and export case distribution DRC transaction data based on validated parameters"""
-   
-    try:   
-            # Get export directory from config
+def excel_pending_reject_incident(drc_commission_rules, from_date, to_date):
+    """Fetch and export pending reject incidents based on validated parameters"""
+    
+    try:
+            #Get export directory from config
             export_dir = ConfigLoaderSingleton().get_export_path()
             export_dir.mkdir(parents=True, exist_ok=True)
 
             db = MongoDBConnectionSingleton().get_database()
-            case_distribution_collection = db["Case_distribution_drc_transactions"]
-            drc_transaction_query = {}
+            incident_log_collection = db["Incident"]
 
-            # Check Arrears_band parameter
-            if arrears_band is not None:
-                if arrears_band == "AB-5_10":
-                    drc_transaction_query["Arrears Band"] = arrears_band
-                elif arrears_band == "AB-25_50":
-                    drc_transaction_query["Arrears Band"] = arrears_band
-                else:
-                    raise ValueError(f"Invalid Arrears_band '{arrears_band}'. Must be one of: AB-5_10, AB-25_50")
+            pending_reject_query = {"Incident_Status": {"$in": [ "Incident Reject"]}}
 
-            # Check drc_commision_rule parameter
-            if drc_commision_rule is not None:
-                if drc_commision_rule == "PEO TV":
-                    drc_transaction_query["drc_commision_rule"] = {"$regex": f"^{drc_commision_rule}$"}
-                elif drc_commision_rule == "BB":
-                    drc_transaction_query["drc_commision_rule"] = drc_commision_rule
+            # Check drc_commission_rules
+            if drc_commission_rules is not None:
+                if isinstance(drc_commission_rules, list) and drc_commission_rules:
+                    pending_reject_query["Filtered_Reason"] = {"$in": drc_commission_rules}
                 else:
-                    raise ValueError(f"Invalid drc_commision_rule '{drc_commision_rule}'. Must be 'PEO TV', 'BB'")
-            
+                    raise ValueError("drc_commission_rules must be a non-empty list of valid commission rules")
 
             # Check date range
             if from_date is not None and to_date is not None:
                 try:
-                    # Check if dates are in correct YYYY-MM-DD format
                     from_dt = datetime.strptime(from_date, '%Y-%m-%d')
                     to_dt = datetime.strptime(to_date, '%Y-%m-%d') + timedelta(days=1) - timedelta(seconds=1)
                     
-                    # Validate date range
                     if to_dt < from_dt:
                         raise ValueError("to_date cannot be earlier than from_date")
                     
-                    # Construct query for date range (checking Created Dtm)
-                    drc_transaction_query["Created Dtm"] = {"$gte": from_dt, "$lte": to_dt}
+                    pending_reject_query["Rejected_Dtm"] = {"$gte": from_dt, "$lte": to_dt}
 
                 except ValueError as ve:
                     if str(ve).startswith("to_date"):
@@ -159,38 +136,36 @@ def excel_case_distribution_detail(arrears_band, drc_commision_rule, from_date, 
                     raise ValueError(f"Invalid date format. Use 'YYYY-MM-DD'. Error: {str(ve)}")
 
             # Log and execute query
-            logger.info(f"Executing query: {drc_transaction_query}")
-            distributions = list(case_distribution_collection.find(drc_transaction_query))
-            logger.info(f"Found {len(distributions)} matching distributions")
+            logger.info(f"Executing query: {pending_reject_query}")
+            incidents = list(incident_log_collection.find(pending_reject_query))
+            logger.info(f"Found {len(incidents)} matching incidents")
 
-            # Export to Excel even if no distributions are found
+            # Export to Excel even if no incidents are found
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
-            filename = f"case_distribution_details_{timestamp}.xlsx"
+            filename = f"pending_reject_incidents_{timestamp}.xlsx"
             filepath = export_dir / filename
 
             wb = Workbook()
             wb.remove(wb.active)
 
-            if not create_distribution_table(wb, distributions, {
-                "arrears_band": arrears_band,
-                "drc_rule": drc_commision_rule,
+            if not create_pending_reject_incident_table(wb, incidents, {
+                "drc_commission_rules": drc_commission_rules,
                 "date_range": (from_dt if from_date is not None else None, to_dt if to_date is not None else None)
             }):
-                raise Exception("Failed to create distribution sheet")
+                raise Exception("Failed to create pending reject incident sheet")
 
             wb.save(filepath)
 
              # Write export record to Download collection
             try:
-                download_collection = db["download"]
+                download_collection = db["file_download_log"]
                 export_record = {
                     "File_Name": filename,
                     "File_Path": str(filepath),
                     "Export_Timestamp": datetime.now(),
-                    "Exported_Record_Count": len(distributions),
+                    "Exported_Record_Count": len(incidents),
                     "Applied_Filters": {
-                        "Arrears_Band": arrears_band,
-                        "DRC_commision_rule": drc_commision_rule,
+                        "DRC_Commision_Rule": drc_commission_rules,
                         "From_Date": from_date,
                         "To_Date": to_date
                     }
@@ -201,10 +176,10 @@ def excel_case_distribution_detail(arrears_band, drc_commision_rule, from_date, 
                 logger.error(f"Failed to insert download record: {str(e)}", exc_info=True)
 
 
-            if not distributions:
-                print(f"No distributions found matching the selected filters. Exported empty table to: {filepath}")
+            if not incidents:
+                print(f"No pending reject incidents found matching the selected filters. Exported empty table to: {filepath}")
             else:
-                print(f"\nSuccessfully exported {len(distributions)} records to: {filepath}")
+                print(f"\nSuccessfully exported {len(incidents)} records to: {filepath}")
             return True
 
     except ValueError as ve:
@@ -215,17 +190,16 @@ def excel_case_distribution_detail(arrears_band, drc_commision_rule, from_date, 
         logger.error(f"Export failed: {str(e)}", exc_info=True)
         print(f"\nError during export: {str(e)}")
         return False
-       
-
-def create_distribution_table(wb, data, filters=None):
-    """Create formatted Excel sheet with filtered distribution data, including headers even if no data"""
+        
+def create_pending_reject_incident_table(wb, data, filters=None):
+    """Create formatted Excel sheet with pending reject incident data, including headers even if no data"""
     try:
-        ws = wb.create_sheet(title="CASE DISTRIBUTION REPORT")
+        ws = wb.create_sheet(title="PENDING REJECT INCIDENT REPORT")
         row_idx = 1
         
         # Main Header
-        ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=len(DISTRIBUTION_HEADERS))
-        main_header = ws.cell(row=row_idx, column=1, value="CASE DISTRIBUTION DRC TRANSACTION LIST")
+        ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=len(PENDING_REJECT_INCIDENT_HEADERS))
+        main_header = ws.cell(row=row_idx, column=1, value="PENDING REJECT INCIDENT REPORT")
         main_header.font = STYLES['MainHeader_Style']['font']
         main_header.fill = STYLES['MainHeader_Style']['fill']
         main_header.alignment = STYLES['MainHeader_Style']['alignment']
@@ -235,20 +209,11 @@ def create_distribution_table(wb, data, filters=None):
         if filters:
             row_idx += 1
             
-            if filters.get('arrears_band'):
-                ws.cell(row=row_idx, column=2, value="Arrears Band:").font = STYLES['FilterParam_Style']['font']
+            if filters.get('drc_commission_rules'):
+                ws.cell(row=row_idx, column=2, value="DRC Commission Rules:").font = STYLES['FilterParam_Style']['font']
                 ws.cell(row=row_idx, column=2).fill = STYLES['FilterParam_Style']['fill']
                 ws.cell(row=row_idx, column=2).alignment = STYLES['FilterParam_Style']['alignment']
-                ws.cell(row=row_idx, column=3, value=filters['arrears_band']).font = STYLES['FilterValue_Style']['font']
-                ws.cell(row=row_idx, column=3).fill = STYLES['FilterValue_Style']['fill']
-                ws.cell(row=row_idx, column=3).alignment = STYLES['FilterValue_Style']['alignment']
-                row_idx += 1
-            
-            if filters.get('drc_rule'):
-                ws.cell(row=row_idx, column=2, value="DRC Commission Rule:").font = STYLES['FilterParam_Style']['font']
-                ws.cell(row=row_idx, column=2).fill = STYLES['FilterParam_Style']['fill']
-                ws.cell(row=row_idx, column=2).alignment = STYLES['FilterParam_Style']['alignment']
-                ws.cell(row=row_idx, column=3, value=filters['drc_rule']).font = STYLES['FilterValue_Style']['font']
+                ws.cell(row=row_idx, column=3, value=", ".join(filters['drc_commission_rules'])).font = STYLES['FilterValue_Style']['font']
                 ws.cell(row=row_idx, column=3).fill = STYLES['FilterValue_Style']['fill']
                 ws.cell(row=row_idx, column=3).alignment = STYLES['FilterValue_Style']['alignment']
                 row_idx += 1
@@ -268,8 +233,8 @@ def create_distribution_table(wb, data, filters=None):
         
         # Data Table Headers
         header_row = row_idx
-        for col_idx, header in enumerate(DISTRIBUTION_HEADERS, 1):
-            cell = ws.cell(row=row_idx, column=col_idx, value=header)
+        for col_idx, header in enumerate(PENDING_REJECT_INCIDENT_HEADERS, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=header.replace('_', ' ').title())
             cell.font = STYLES['SubHeader_Style']['font']
             cell.fill = STYLES['SubHeader_Style']['fill']
             cell.border = STYLES['SubHeader_Style']['border']
@@ -280,26 +245,23 @@ def create_distribution_table(wb, data, filters=None):
         if data:
             for record in data:
                 row_idx += 1
-                for col_idx, header in enumerate(DISTRIBUTION_HEADERS, 1):
+                for col_idx, header in enumerate(PENDING_REJECT_INCIDENT_HEADERS, 1):
                     value = record.get(header, "")
-                    # Handle date fields
-                    if header == "Created Dtm" and isinstance(value, datetime):
+                    if header == "Incident_Id" and isinstance(value, ObjectId):
+                        value = str(value)
+                    if header == "Rejected_Dtm" and isinstance(value, datetime):
                         value = value.strftime('%Y-%m-%d %H:%M:%S')
-                    # Format case count as integer
-                    if header == "Case Count" and isinstance(value, (int, float)):
-                        value = int(value)
-                    
                     cell = ws.cell(row=row_idx, column=col_idx, value=value)
                     cell.font = STYLES['Border_Style']['font']
                     cell.border = STYLES['Border_Style']['border']
                     cell.alignment = STYLES['Border_Style']['alignment']
         
         # Add AutoFilter to headers
-        last_col_letter = get_column_letter(len(DISTRIBUTION_HEADERS))
+        last_col_letter = get_column_letter(len(PENDING_REJECT_INCIDENT_HEADERS))
         ws.auto_filter.ref = f"{get_column_letter(1)}{header_row}:{last_col_letter}{header_row}"
         
         # Auto-adjust columns based on headers (and data if present)
-        for col_idx in range(1, len(DISTRIBUTION_HEADERS) + 1):
+        for col_idx in range(1, len(PENDING_REJECT_INCIDENT_HEADERS) + 1):
             col_letter = get_column_letter(col_idx)
             max_length = max(
                 len(str(cell.value)) if cell.value else 0

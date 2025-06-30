@@ -60,23 +60,24 @@ Future Extensibility:
 import logging
 from datetime import datetime
 from utils.connectionMongo import MongoDBConnectionSingleton
-from export.incident_list import excel_incident_detail
-from export.incident_open_for_distribution import excel_incident_open_distribution
-from export.pending_reject_list import excel_pending_reject_incident
-from export.cpe_list import excel_cpe_detail
-from export.direct_lod import excel_direct_lod_detail
-from export.rejected_list import excel_rejected_detail
-from export.case_distribution_drc_transaction import excel_case_distribution_detail
-from export.case_distribution_drc_transaction_batch_list import excel_case_distribution_transaction_batch_detail
-from export.case_distribution_drc_transaction_batch_list_distribution_array import excel_case_distribution_transaction_batch_distribution_array_detail
-from export.drc_assign_batch_approval_list import excel_drc_assign_batch_approval
-from export.drc_assign_manager_approval_list import excel_drc_approval_detail
-from export.case_distribution_drc_summary_drc_id import excel_drc_summary_detail
-from export.request_log import excel_request_log_detail
-from export.request_response_log_list import excel_case_detail
-from export.digital_signatures_relavent_lod import excel_rejected_detail
-from export.each_lod_or_final_remider_case import excel_rejected_detail
-from export.proceed_lod_or_final_remider_list import excel_rejected_detail
+from export._20_incident import excel_incident_detail
+from export._21_incident_open import excel_incident_open_distribution
+from export._22_pending_reject import excel_pending_reject_incident
+from export._23_direct_lod import excel_direct_lod_detail
+from export._24_cpe import excel_cpe_detail
+from export._25_rejected import excel_rejected_detail
+from export._26_case_distribution_drc_transaction import excel_case_distribution_detail
+from export._27_case_distribution_drc_transaction_batch_list import excel_case_distribution_transaction_batch_detail
+from export._28_case_distribution_drc_transaction_batch_list_distribution_array import excel_case_distribution_transaction_batch_distribution_array_detail
+from export._30_drc_assign_batch_approval_list import excel_drc_assign_batch_approval
+from export._33_drc_assign_manager_approval_list import excel_drc_approval_detail
+from export._32_case_distribution_drc_summary_drc_id import excel_drc_summary_detail
+from export._37_request_log import excel_request_log_detail
+from export._38_request_response_log_list import excel_case_detail
+from export._39_digital_signatures_relavent_lod import excel_digital_signature_detail
+from export._40_each_lod_or_final_remider_case import excel_lod_or_final_reminder_detail
+from export._41_proceed_lod_or_final_remider_list import excel_proceed_lod_or_final_reminder_detail
+
 logger = logging.getLogger('appLogger')
 
 class TaskHandlers:
@@ -135,23 +136,24 @@ class TaskHandlers:
                         params.get('batch_seq')
                     )
                 case 30:
-                    return drc_assign_batch_approval_list(
-                        params.get('approver_type'),
-                        params.get('date_from'),        
-                        params.get('date_to'),
-                        params.get('approver_status'),
+                    return excel_drc_assign_batch_approval(
+                        params.get('approver_ref')
                     )
                 case 33:
-                    return drc_assign_manager_approval_list()
+                    return excel_drc_approval_detail(
+                        params.get('approval_type'),
+                        params.get('from_date'),
+                        params.get('to_date')
+                    )
             
                 case 32:
-                    return case_distribution_drc_summary_drc_id(
+                    return excel_drc_summary_detail(
                         params.get('drc_id'),
                         params.get('drc_name'), 
                         params.get('case_distribution_batch_id')
                     ) 
                 case 37:
-                    return request_log(
+                    return excel_request_log_detail(
                         params.get('deligate_user_id'),
                         params.get('user_interaction_type'),
                         params.get('drc_id'),
@@ -159,22 +161,22 @@ class TaskHandlers:
                         params.get('to_date'),
                     )
                 case 38:
-                    return request_response_log_list(
+                    return excel_case_detail(
                         params.get('case_current_status'),
                         params.get('to_date'),
                         params.get('date_from'),
                     )                                                                   
                 case 39:
-                    return digital_signatures_relavent_lod(
+                    return excel_digital_signature_detail(
                         params.get('case_current_status'),
                     )   
                 case 40:    
-                    return each_lod_or_final_remider_case(
+                    return excel_lod_or_final_reminder_detail(
                         params.get('case_current_status'),
                         params.get('current_document_type')
                     )   
                 case 41:    
-                    return proceed_lod_or_final_remider_list( 
+                    return excel_proceed_lod_or_final_reminder_detail( 
                         params.get('case_current_status'),
                         params.get('current_document_type'),
                         params.get('case_count')    

@@ -196,7 +196,7 @@ def excel_cpe_detail(from_date, to_date, drc_commision_rule):
 
             # Write export record to Download collection
             try:
-                download_collection = db["download"]
+                download_collection = db["file_download_log"]
                 export_record = {
                     "File_Name": filename,
                     "File_Path": str(filepath),
