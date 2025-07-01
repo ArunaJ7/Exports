@@ -96,7 +96,7 @@ from utils.config_loader import ConfigLoaderSingleton
 
 logger = getLogger('appLogger')
 
-REJECTED_HEADERS = [
+Each_LOD_OR_FINAL_REMINDER_HEADERS = [
     "Incident_Id", "Incident_Status", "Account_Num", "Created_Dtm",
     "Filtered_Reason", "Rejected_Dtm","Rejected_By"
 ]
@@ -111,48 +111,45 @@ def excel_lod_or_final_reminder_detail(case_current_status, current_document_typ
 
             db = MongoDBConnectionSingleton().get_database()
             incident_collection = db["Incident"]
-            reject_query = {"Incident_Status": "Incident Reject"}  # Fixed to only rejected incidents
+            each_query = {}  
 
             # Validate and apply actions filter
             if case_current_status is not None:
                 if case_current_status == "collect CPE":
-                    reject_query["Actions"] = {"$regex": f"^{case_current_status}$"}
+                    each_query["Actions"] = {"$regex": f"^{case_current_status}$"}
                 elif case_current_status == "collect arrears":
-                    reject_query["Actions"] = case_current_status
+                    each_query["Actions"] = case_current_status
                 elif case_current_status == "collect arrears and CPE":
-                    reject_query["Actions"] = actions
+                    each_query["Actions"] = case_current_status
                 else:
-                     raise ValueError(f"Invalid actions '{actions}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
+                     raise ValueError(f"Invalid actions '{case_current_status}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
 
             # Validate and apply current_document_type filter
             if current_document_type is not None:
                 if current_document_type == "PEO TV":
-                  reject_query["current_document_type"] = {"$regex": f"^{current_document_type}$"}
+                  each_query["current_document_type"] = {"$regex": f"^{current_document_type}$"}
                 elif current_document_type == "BB":
-                  reject_query["current_document_type"] = current_document_type
+                  each_query["current_document_type"] = current_document_type
                 else:
-                     raise ValueError(f"Invalid actions '{actions}'. Must be 'PEO TV', 'BB'")
+                     raise ValueError(f"Invalid documents '{current_document_type}'. Must be 'PEO TV', 'BB'")
 
             
 
-
-            logger.info(f"Executing query on Incident for rejected incidents: {reject_query}")
-            incidents = list(incident_collection.find(reject_query))
+            logger.info(f"Executing query on Incident for rejected incidents: {each_query}")
+            incidents = list(incident_collection.find(each_query))
             logger.info(f"Found {len(incidents)} matching rejected incidents")
 
             # Export to Excel
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
-            filename = f"rejected_incidents_{timestamp}.xlsx"
+            filename = f"each_lod_or_final_reminder_{timestamp}.xlsx"
             filepath = export_dir / filename
 
             wb = Workbook()
             wb.remove(wb.active)
 
             if not create_rejected_table(wb, incidents, {
-                "actions": actions,
-                "drc_commision_rule": drc_commision_rule,
-                "date_range": (datetime.strptime(from_date, '%Y-%m-%d') if from_date else None,
-                            datetime.strptime(to_date, '%Y-%m-%d') if to_date else None)
+                "case_current_status": case_current_status,
+                "current_document_type": current_document_type
             }):
                 raise Exception("Failed to create rejected incident sheet")
 
@@ -167,10 +164,8 @@ def excel_lod_or_final_reminder_detail(case_current_status, current_document_typ
                     "Export_Timestamp": datetime.now(),
                     "Exported_Record_Count": len(incidents),
                     "Applied_Filters": {
-                        "Actions": actions,
-                        "DRC_Commision_Rule": drc_commision_rule,
-                        "From_Date": from_date,
-                        "To_Date": to_date
+                        "Case_Current_Status": case_current_status,
+                        "Current_Document_Type": current_document_type
                     }
                 }
                 download_collection.insert_one(export_record)
@@ -196,15 +191,15 @@ def excel_lod_or_final_reminder_detail(case_current_status, current_document_typ
     
         
 
-def create_rejected_table(wb, data, filters=None):
-    """Create formatted Excel sheet with rejected incident data"""
+def create_each_lod_or_final_reminder_table(wb, data, filters=None):
+    """Create formatted Excel sheet with each LOD or final reminder data"""
     try:
-        ws = wb.create_sheet(title="REJECTED INCIDENT REPORT")
+        ws = wb.create_sheet(title="EACH LOD OR FINAL REMINDER REPORT")
         row_idx = 1
         
         # Main Header
         ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=len(REJECTED_HEADERS))
-        main_header = ws.cell(row=row_idx, column=1, value="REJECTED INCIDENT REPORT")
+        main_header = ws.cell(row=row_idx, column=1, value="EACH LOD OR FINAL REMINDER REPORT")
         main_header.font = STYLES['MainHeader_Style']['font']
         main_header.fill = STYLES['MainHeader_Style']['fill']
         main_header.alignment = STYLES['MainHeader_Style']['alignment']

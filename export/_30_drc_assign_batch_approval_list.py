@@ -123,7 +123,7 @@ def excel_drc_assign_batch_approval(approver_ref):
             logger.info(f"Found {len(batches)} matching batch records")
 
             # Export to Excel even if no batches are found
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"drc_assign_batch_approval_{timestamp}.xlsx"
             filepath = export_dir / filename
 

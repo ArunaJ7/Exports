@@ -17,14 +17,19 @@ task_manager.py - This code manages and runs tasks by reading task IDs from the 
 
 ***Functions***
 
-(/export/incident_list.py)
+(/export/_20_incident.py)
 1.excel_incident_details - fetch incident list acording to parameters.
+                           create incident report
+
+(/export/_21_incident_open.py)
+2.excel_incident_details - fetch all incident.
+                           create incident report without parameter
 
 (/export/cpe_list.py)
-2.excel_cpe_list  - fetch incidents, action = collect cpe
+3.excel_cpe_list  - fetch incidents, action = collect cpe
 
 (/export/direct_lod.py)
-3.excel_direct_lod - fetch incidents, incident status = direct lod 
+4.excel_direct_lod - fetch incidents, incident status = direct lod 
 
 (/export/rejected_list.py)
 4.excel_rejected_details - fetch rejected incidents. 
@@ -55,3 +60,15 @@ task_manager.py - This code manages and runs tasks by reading task IDs from the 
 
 (/export/drc_summary_rtom.py)
 13.excel_drc_summary_rtom_detail - fetch drc summary details.
+
+(/export/drc_summary_rtom.py)
+14.excel_drc_summary_rtom_detail - fetch drc summary details.
+
+(/export/drc_summary_rtom.py)
+15.excel_drc_summary_rtom_detail - fetch drc summary details.
+
+(/export/drc_summary_rtom.py)
+16.excel_drc_summary_rtom_detail - fetch drc summary details.
+
+(/export/drc_summary_rtom.py)
+17.excel_drc_summary_rtom_detail - fetch drc summary details.

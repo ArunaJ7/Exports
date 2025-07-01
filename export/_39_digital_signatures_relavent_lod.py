@@ -120,9 +120,9 @@ def excel_digital_signature_detail(case_current_status):
                 elif case_current_status == "collect arrears":
                     reject_query["Actions"] = case_current_status
                 elif case_current_status == "collect arrears and CPE":
-                    reject_query["Actions"] = actions
+                    reject_query["Actions"] = case_current_status
                 else:
-                     raise ValueError(f"Invalid actions '{actions}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
+                     raise ValueError(f"Invalid actions '{case_current_status}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
 
             
 
@@ -142,10 +142,8 @@ def excel_digital_signature_detail(case_current_status):
             wb.remove(wb.active)
 
             if not create_digital_signature_table(wb, incidents, {
-                "actions": actions,
-                "drc_commision_rule": drc_commision_rule,
-                "date_range": (datetime.strptime(from_date, '%Y-%m-%d') if from_date else None,
-                            datetime.strptime(to_date, '%Y-%m-%d') if to_date else None)
+                "case_current_status": case_current_status
+
             }):
                 raise Exception("Failed to create rejected incident sheet")
 

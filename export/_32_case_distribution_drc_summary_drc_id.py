@@ -100,7 +100,7 @@ DRC_SUMMARY_HEADERS = [
 ]
 
 def excel_drc_summary_detail(drc_id, drc, case_distribution_batch_id):
-    """Fetch and export DRC summary details with a fixed Task_Id of 20 based on validated parameters"""
+    """Fetch and export DRC summary details with a fixed Task_Id of 32 based on validated parameters"""
     
     
     try:
@@ -147,7 +147,7 @@ def excel_drc_summary_detail(drc_id, drc, case_distribution_batch_id):
                 return False
 
             # Export to Excel even if no incidents are found
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"drc_summary_{timestamp}.xlsx"
             filepath = export_dir / filename
 

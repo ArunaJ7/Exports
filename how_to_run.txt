@@ -1,3 +1,0 @@
--> install  requirements.txt
-        |
--> Console Command - Python main.py

@@ -165,7 +165,7 @@ def excel_request_log_detail(delegate_user_id, User_Interaction_Type, drc_id, da
             logger.info(f"Found {len(requests)} matching requests")
 
             # Export to Excel even if no requests are found
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"request_log_details_{timestamp}.xlsx"
             filepath = export_dir / filename
 

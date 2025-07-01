@@ -156,7 +156,7 @@ def excel_case_detail(case_current_status, date_from, date_to):
             logger.info(f"Found {len(cases)} matching cases")
 
             # Export to Excel even if no cases are found
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"cases_details_{timestamp}.xlsx"
             filepath = export_dir / filename
 

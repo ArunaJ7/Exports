@@ -179,8 +179,7 @@ def excel_drc_approval_detail(approval_type, from_date, to_date):
                 return False
 
             # Export to Excel
-            output_dir= "exports" 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
             filename = f"drc_approval_{timestamp}.xlsx"
             filepath = export_dir / filename
 
