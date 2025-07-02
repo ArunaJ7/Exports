@@ -107,7 +107,7 @@ def excel_drc_assign_batch_approval(approver_ref):
             export_dir.mkdir(parents=True, exist_ok=True)
 
             db = MongoDBConnectionSingleton().get_database()
-            batch_approval_collection = db["Batch_Approval_log"]
+            batch_approval_collection = db["Template_forwarded_approver"]
             batch_approval_query = {}
 
             # Check approver_ref

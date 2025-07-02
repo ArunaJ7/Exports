@@ -99,7 +99,7 @@ from utils.config_loader import ConfigLoaderSingleton
 logger = getLogger('appLogger')
 
 APPROVAL_HEADERS = [
-    "case_id", "created_dtm", "created_by", "approval_type",
+    "approver_reference", "created_dtm", "created_by", "approval_type",
     "approve_status", "approved_by", "remark"
 ]
 

@@ -98,8 +98,7 @@ logger = getLogger('appLogger')
 
 REJECTED_HEADERS = [
     "Incident_Id", "Incident_Status", "Account_Num", "Created_Dtm",
-    "Filtered_Reason", "Rejected_Dtm","Rejected_By"
-]
+    "Filtered_Reason"]
 
 def excel_digital_signature_detail(case_current_status):
     """Fetch and export digital signature details from Incident collection"""
@@ -110,17 +109,17 @@ def excel_digital_signature_detail(case_current_status):
             export_dir.mkdir(parents=True, exist_ok=True)
 
             db = MongoDBConnectionSingleton().get_database()
-            incident_collection = db["Incident"]
-            reject_query = {"Incident_Status": "Incident Reject"}  # Fixed to only rejected incidents
+            case_details_collection = db["Case_details"]
+            case_current_query = {}  
 
             # Validate and apply actions filter
             if case_current_status is not None:
                 if case_current_status == "collect CPE":
-                    reject_query["Actions"] = {"$regex": f"^{case_current_status}$"}
+                    case_current_query["Actions"] = {"$regex": f"^{case_current_status}$"}
                 elif case_current_status == "collect arrears":
-                    reject_query["Actions"] = case_current_status
+                    case_current_query["Actions"] = case_current_status
                 elif case_current_status == "collect arrears and CPE":
-                    reject_query["Actions"] = case_current_status
+                    case_current_query["Actions"] = case_current_status
                 else:
                      raise ValueError(f"Invalid actions '{case_current_status}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
 
@@ -129,9 +128,9 @@ def excel_digital_signature_detail(case_current_status):
            
 
 
-            logger.info(f"Executing query on Incident for rejected incidents: {reject_query}")
-            incidents = list(incident_collection.find(reject_query))
-            logger.info(f"Found {len(incidents)} matching rejected incidents")
+            logger.info(f"Executing query on Incident for rejected incidents: {case_current_query}")
+            case = list(case_details_collection.find(case_current_query))
+            logger.info(f"Found {len(case)} matching rejected incidents")
 
             # Export to Excel
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
@@ -141,7 +140,7 @@ def excel_digital_signature_detail(case_current_status):
             wb = Workbook()
             wb.remove(wb.active)
 
-            if not create_digital_signature_table(wb, incidents, {
+            if not create_digital_signature_table(wb, case, {
                 "case_current_status": case_current_status
 
             }):

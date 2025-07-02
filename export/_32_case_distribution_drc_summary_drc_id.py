@@ -110,7 +110,7 @@ def excel_drc_summary_detail(drc_id, drc, case_distribution_batch_id):
             export_dir.mkdir(parents=True, exist_ok=True)
 
             db = MongoDBConnectionSingleton().get_database()
-            case_distribution_collection = db["Case_Distribution_DRC_Summary"]
+            case_distribution_collection = db["Case_distribution_drc_summary"]
             case_distribution_query = {}
 
             # Check each parameter and build query

@@ -20,7 +20,7 @@ Program Description:
 1. Core Functionality:
     - excel_rejected_detail(): Main export function that:
         a. Validates input parameters (actions, DRC commission rule, date range)
-        b. Constructs MongoDB query for rejected incidents
+        b. Constructs MongoDB query for rejected cases
         c. Executes query against Incident collection
         d. Generates formatted Excel report
     - create_rejected_table(): Handles Excel sheet creation with:
@@ -110,7 +110,7 @@ def excel_lod_or_final_reminder_detail(case_current_status, current_document_typ
             export_dir.mkdir(parents=True, exist_ok=True)
 
             db = MongoDBConnectionSingleton().get_database()
-            incident_collection = db["Incident"]
+            case_details_collection = db["Case_details"]
             each_query = {}  
 
             # Validate and apply actions filter
@@ -135,9 +135,9 @@ def excel_lod_or_final_reminder_detail(case_current_status, current_document_typ
 
             
 
-            logger.info(f"Executing query on Incident for rejected incidents: {each_query}")
-            incidents = list(incident_collection.find(each_query))
-            logger.info(f"Found {len(incidents)} matching rejected incidents")
+            logger.info(f"Executing query on Incident for rejected cases: {each_query}")
+            cases = list(case_details_collection.find(each_query))
+            logger.info(f"Found {len(cases)} matching rejected cases")
 
             # Export to Excel
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
@@ -147,7 +147,7 @@ def excel_lod_or_final_reminder_detail(case_current_status, current_document_typ
             wb = Workbook()
             wb.remove(wb.active)
 
-            if not create_rejected_table(wb, incidents, {
+            if not create_rejected_table(wb, cases, {
                 "case_current_status": case_current_status,
                 "current_document_type": current_document_type
             }):
@@ -162,7 +162,7 @@ def excel_lod_or_final_reminder_detail(case_current_status, current_document_typ
                     "File_Name": filename,
                     "File_Path": str(filepath),
                     "Export_Timestamp": datetime.now(),
-                    "Exported_Record_Count": len(incidents),
+                    "Exported_Record_Count": len(cases),
                     "Applied_Filters": {
                         "Case_Current_Status": case_current_status,
                         "Current_Document_Type": current_document_type
@@ -174,10 +174,10 @@ def excel_lod_or_final_reminder_detail(case_current_status, current_document_typ
                 logger.error(f"Failed to insert download record: {str(e)}", exc_info=True)
 
 
-            if not incidents:
-                print("No rejected incidents found matching the selected filters. Exported empty table to: {filepath}")
+            if not cases:
+                print("No rejected cases found matching the selected filters. Exported empty table to: {filepath}")
             else:    
-                print(f"\nSuccessfully exported {len(incidents)} rejected records to: {filepath}")
+                print(f"\nSuccessfully exported {len(cases)} rejected records to: {filepath}")
             return True            
            
     except ValueError as ve:
