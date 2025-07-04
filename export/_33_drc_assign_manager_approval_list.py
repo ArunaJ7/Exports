@@ -32,7 +32,7 @@ Program Description:
 
 2. Data Flow:
     - Receives filter parameters from calling function
-    - Fetches data from Case_details collection
+    - Fetches data from Template_forwarded_approver collection
     - Flattens nested approval array structure
     - Transforms MongoDB documents to Excel rows
     - Applies consistent styling using STYLES configuration
@@ -80,7 +80,7 @@ Technical Specifications:
         - Excel file with standardized naming convention
         - Returns boolean success status
     - Collections Accessed:
-        - Case_details (primary data source)
+        - Template_forwarded_approver (primary data source)
     - Special Processing:
         - Extracts and flattens data from nested "approve" array
         - Filters approval records by type if specified
@@ -105,7 +105,7 @@ APPROVAL_HEADERS = [
 
 
 def excel_drc_approval_detail(approval_type, from_date, to_date):
-    """Fetch and export DRC assign manager approval details from Case_details collection"""
+    """Fetch and export DRC assign manager approval details from Template_forwarded_approver collection"""
     
     
     try:
@@ -115,7 +115,7 @@ def excel_drc_approval_detail(approval_type, from_date, to_date):
             export_dir.mkdir(parents=True, exist_ok=True)
 
             db = MongoDBConnectionSingleton().get_database()
-            collection = db["Case_details"]
+            collection = db["Template_forwarded_approver"]
             query = {}
 
 
@@ -151,7 +151,7 @@ def excel_drc_approval_detail(approval_type, from_date, to_date):
            
                     
 
-            logger.info(f"Executing query on Case_details: {query}")
+            logger.info(f"Executing query on Template_forwarded_approver: {query}")
             cases = list(collection.find(query))
             logger.info(f"Found {len(cases)} matching case records")
 

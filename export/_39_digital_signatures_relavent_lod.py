@@ -20,7 +20,7 @@ Program Description:
 1. Core Functionality:
     - excel_rejected_detail(): Main export function that:
         a. Validates input parameters (actions, DRC commission rule, date range)
-        b. Constructs MongoDB query for rejected incidents
+        b. Constructs MongoDB query for rejected case
         c. Executes query against Incident collection
         d. Generates formatted Excel report
     - create_rejected_table(): Handles Excel sheet creation with:
@@ -109,17 +109,15 @@ def excel_digital_signature_detail(case_current_status):
             export_dir.mkdir(parents=True, exist_ok=True)
 
             db = MongoDBConnectionSingleton().get_database()
-            case_details_collection = db["Case_details"]
+            case_details_collection = db["case_details"]
             case_current_query = {}  
 
             # Validate and apply actions filter
             if case_current_status is not None:
-                if case_current_status == "collect CPE":
-                    case_current_query["Actions"] = {"$regex": f"^{case_current_status}$"}
-                elif case_current_status == "collect arrears":
-                    case_current_query["Actions"] = case_current_status
-                elif case_current_status == "collect arrears and CPE":
-                    case_current_query["Actions"] = case_current_status
+                if case_current_status == "Abandand":
+                    case_current_query["Case_current_starus"] = {"$regex": f"^{case_current_status}$"}
+                elif case_current_status == "LIT prescribed":
+                    case_current_query["Case_current_starus"] = case_current_status
                 else:
                      raise ValueError(f"Invalid actions '{case_current_status}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
 
@@ -128,9 +126,9 @@ def excel_digital_signature_detail(case_current_status):
            
 
 
-            logger.info(f"Executing query on Incident for rejected incidents: {case_current_query}")
+            logger.info(f"Executing query on Incident for rejected case: {case_current_query}")
             case = list(case_details_collection.find(case_current_query))
-            logger.info(f"Found {len(case)} matching rejected incidents")
+            logger.info(f"Found {len(case)} matching rejected case")
 
             # Export to Excel
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
@@ -141,7 +139,7 @@ def excel_digital_signature_detail(case_current_status):
             wb.remove(wb.active)
 
             if not create_digital_signature_table(wb, case, {
-                "case_current_status": case_current_status
+                "Case_current_status": case_current_status
 
             }):
                 raise Exception("Failed to create rejected incident sheet")
@@ -155,12 +153,9 @@ def excel_digital_signature_detail(case_current_status):
                     "File_Name": filename,
                     "File_Path": str(filepath),
                     "Export_Timestamp": datetime.now(),
-                    "Exported_Record_Count": len(incidents),
+                    "Exported_Record_Count": len(case),
                     "Applied_Filters": {
-                        "Actions": actions,
-                        "DRC_Commision_Rule": drc_commision_rule,
-                        "From_Date": from_date,
-                        "To_Date": to_date
+                        "Case_current_status" : case_current_status
                     }
                 }
                 download_collection.insert_one(export_record)
@@ -169,10 +164,10 @@ def excel_digital_signature_detail(case_current_status):
                 logger.error(f"Failed to insert download record: {str(e)}", exc_info=True)
 
 
-            if not incidents:
-                print("No rejected incidents found matching the selected filters. Exported empty table to: {filepath}")
+            if not case:
+                print("No rejected case found matching the selected filters. Exported empty table to: {filepath}")
             else:    
-                print(f"\nSuccessfully exported {len(incidents)} rejected records to: {filepath}")
+                print(f"\nSuccessfully exported {len(case)} rejected records to: {filepath}")
             return True            
            
     except ValueError as ve:
@@ -204,9 +199,9 @@ def create_digital_signature_table(wb, data, filters=None):
         if filters:
             row_idx += 1
             
-            # Actions filter
+            # Case_current_starus filter
             if filters.get('actions'):
-                ws.cell(row=row_idx, column=2, value="Actions:").font = STYLES['FilterParam_Style']['font']
+                ws.cell(row=row_idx, column=2, value="Case_current_starus:").font = STYLES['FilterParam_Style']['font']
                 ws.cell(row=row_idx, column=2).fill = STYLES['FilterParam_Style']['fill']
                 ws.cell(row=row_idx, column=2).alignment = STYLES['FilterParam_Style']['alignment']
                 ws.cell(row=row_idx, column=3, value=filters['actions']).font = STYLES['FilterValue_Style']['font']
