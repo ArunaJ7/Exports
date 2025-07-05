@@ -54,7 +54,7 @@ Program Description:
 4. Configuration:
     - Export path determined by ConfigLoaderSingleton
     - Styles managed through style_loader.py
-    - Column headers defined in REJECTED_HEADERS constant:
+    - Column headers defined in DIGITAL_SIGNATURES_HEADERS)) constant:
         * Incident_Id
         * Incident_Status
         * Account_Num
@@ -96,7 +96,7 @@ from utils.config_loader import ConfigLoaderSingleton
 
 logger = getLogger('appLogger')
 
-REJECTED_HEADERS = [
+DIGITAL_SIGNATURES_HEADERS = [
     "Incident_Id", "Incident_Status", "Account_Num", "Created_Dtm",
     "Filtered_Reason"]
 
@@ -119,7 +119,7 @@ def excel_digital_signature_detail(case_current_status):
                 elif case_current_status == "LIT prescribed":
                     case_current_query["Case_current_starus"] = case_current_status
                 else:
-                     raise ValueError(f"Invalid actions '{case_current_status}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
+                     raise ValueError(f"Invalid actions '{case_current_status}'. Must be 'Abandand', 'LIT prescribed'")
 
             
 
@@ -132,7 +132,7 @@ def excel_digital_signature_detail(case_current_status):
 
             # Export to Excel
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
-            filename = f"rejected_incidents_{timestamp}.xlsx"
+            filename = f"digital_signatures_relavent_lod_{timestamp}.xlsx"
             filepath = export_dir / filename
 
             wb = Workbook()
@@ -142,7 +142,7 @@ def excel_digital_signature_detail(case_current_status):
                 "Case_current_status": case_current_status
 
             }):
-                raise Exception("Failed to create rejected incident sheet")
+                raise Exception("Failed to create digital signatures sheet")
 
             wb.save(filepath)
 
@@ -165,9 +165,9 @@ def excel_digital_signature_detail(case_current_status):
 
 
             if not case:
-                print("No rejected case found matching the selected filters. Exported empty table to: {filepath}")
+                print("No digital signatures found matching the selected filters. Exported empty table to: {filepath}")
             else:    
-                print(f"\nSuccessfully exported {len(case)} rejected records to: {filepath}")
+                print(f"\nSuccessfully exported {len(case)} signatures records to: {filepath}")
             return True            
            
     except ValueError as ve:
@@ -184,12 +184,12 @@ def excel_digital_signature_detail(case_current_status):
 def create_digital_signature_table(wb, data, filters=None):
     """Create formatted Excel sheet with digital signature data"""
     try:
-        ws = wb.create_sheet(title="REJECTED INCIDENT REPORT")
+        ws = wb.create_sheet(title="DIGITAL SIGNATURES RELAVENT LOD REPORT")
         row_idx = 1
         
         # Main Header
-        ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=len(REJECTED_HEADERS))
-        main_header = ws.cell(row=row_idx, column=1, value="REJECTED INCIDENT REPORT")
+        ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=len(DIGITAL_SIGNATURES_HEADERS))
+        main_header = ws.cell(row=row_idx, column=1, value="DIGITAL SIGNATURES RELAVENT LOD REPORT")
         main_header.font = STYLES['MainHeader_Style']['font']
         main_header.fill = STYLES['MainHeader_Style']['fill']
         main_header.alignment = STYLES['MainHeader_Style']['alignment']
@@ -201,41 +201,18 @@ def create_digital_signature_table(wb, data, filters=None):
             
             # Case_current_starus filter
             if filters.get('actions'):
-                ws.cell(row=row_idx, column=2, value="Case_current_starus:").font = STYLES['FilterParam_Style']['font']
+                ws.cell(row=row_idx, column=2, value="Case_current_status:").font = STYLES['FilterParam_Style']['font']
                 ws.cell(row=row_idx, column=2).fill = STYLES['FilterParam_Style']['fill']
                 ws.cell(row=row_idx, column=2).alignment = STYLES['FilterParam_Style']['alignment']
-                ws.cell(row=row_idx, column=3, value=filters['actions']).font = STYLES['FilterValue_Style']['font']
+                ws.cell(row=row_idx, column=3, value=filters['Case_current_status']).font = STYLES['FilterValue_Style']['font']
                 ws.cell(row=row_idx, column=3).fill = STYLES['FilterValue_Style']['fill']
                 ws.cell(row=row_idx, column=3).alignment = STYLES['FilterValue_Style']['alignment']
                 row_idx += 1
             
-            # DRC Commission Rule filter
-            if filters.get('drc_commision_rule'):
-                ws.cell(row=row_idx, column=2, value="DRC Commission Rule:").font = STYLES['FilterParam_Style']['font']
-                ws.cell(row=row_idx, column=2).fill = STYLES['FilterParam_Style']['fill']
-                ws.cell(row=row_idx, column=2).alignment = STYLES['FilterParam_Style']['alignment']
-                ws.cell(row=row_idx, column=3, value=filters['drc_commision_rule']).font = STYLES['FilterValue_Style']['font']
-                ws.cell(row=row_idx, column=3).fill = STYLES['FilterValue_Style']['fill']
-                ws.cell(row=row_idx, column=3).alignment = STYLES['FilterValue_Style']['alignment']
-                row_idx += 1
-            
-            # Date Range filter
-            if filters.get('date_range') and any(filters['date_range']):
-                start, end = filters['date_range']
-                ws.cell(row=row_idx, column=2, value="Date Range:").font = STYLES['FilterParam_Style']['font']
-                ws.cell(row=row_idx, column=2).fill = STYLES['FilterParam_Style']['fill']
-                ws.cell(row=row_idx, column=2).alignment = STYLES['FilterParam_Style']['alignment']
-                date_str = f"{start.strftime('%Y-%m-%d') if start else 'Beginning'} to {end.strftime('%Y-%m-%d') if end else 'Now'}"
-                ws.cell(row=row_idx, column=3, value=date_str).font = STYLES['FilterValue_Style']['font']
-                ws.cell(row=row_idx, column=3).fill = STYLES['FilterValue_Style']['fill']
-                ws.cell(row=row_idx, column=3).alignment = STYLES['FilterValue_Style']['alignment']
-                row_idx += 1
-            
-            row_idx += 1
         
         # Data Table Headers
         header_row = row_idx
-        for col_idx, header in enumerate(REJECTED_HEADERS, 1):
+        for col_idx, header in enumerate(DIGITAL_SIGNATURES_HEADERS)), 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=header.replace('_', ' ').title())
             cell.font = STYLES['SubHeader_Style']['font']
             cell.fill = STYLES['SubHeader_Style']['fill']
@@ -246,7 +223,7 @@ def create_digital_signature_table(wb, data, filters=None):
         # Data Rows
         for record in data:
             row_idx += 1
-            for col_idx, header in enumerate(REJECTED_HEADERS, 1):
+            for col_idx, header in enumerate(DIGITAL_SIGNATURES_HEADERS)), 1):
                 value = record.get(header, "")
                 if header == "Incident_Id" and isinstance(value, ObjectId):
                     value = str(value)
@@ -259,11 +236,11 @@ def create_digital_signature_table(wb, data, filters=None):
         
         # Add AutoFilter to all columns
         if data:
-            last_col_letter = get_column_letter(len(REJECTED_HEADERS))
+            last_col_letter = get_column_letter(len(DIGITAL_SIGNATURES_HEADERS))
             ws.auto_filter.ref = f"{get_column_letter(1)}{header_row}:{last_col_letter}{row_idx}"
         
         # Auto-adjust columns
-        for col_idx in range(1, len(REJECTED_HEADERS) + 1):
+        for col_idx in range(1, len(DIGITAL_SIGNATURES_HEADERS)) + 1):
             col_letter = get_column_letter(col_idx)
             max_length = max(
                 len(str(cell.value)) if cell.value else 0
@@ -275,5 +252,5 @@ def create_digital_signature_table(wb, data, filters=None):
         return True
     
     except Exception as e:
-        logger.error(f"Error creating rejected sheet: {str(e)}", exc_info=True)
+        logger.error(f"Error creating digital signature sheet: {str(e)}", exc_info=True)
         return False    
