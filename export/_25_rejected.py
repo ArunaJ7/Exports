@@ -101,7 +101,7 @@ REJECTED_HEADERS = [
     "Filtered_Reason", "Rejected_Dtm","Rejected_By"
 ]
 
-def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
+def excel_rejected_detail(drc_commision_rule, from_date,to_date):
     """Fetch and export rejected incidents from Incident collection"""
 
         
@@ -114,17 +114,7 @@ def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
             incident_collection = db["Incident"]
             reject_query = {"Incident_Status": "Incident Reject"}  # Fixed to only rejected incidents
 
-            # Validate and apply actions filter
-            if actions is not None:
-                if actions == "collect CPE":
-                    reject_query["Actions"] = {"$regex": f"^{actions}$"}
-                elif actions == "collect arrears":
-                    reject_query["Actions"] = actions
-                elif actions == "collect arrears and CPE":
-                    reject_query["Actions"] = actions
-                else:
-                     raise ValueError(f"Invalid actions '{actions}'. Must be 'collect arrears and CPE', 'collect arrears', or 'collect CPE'")
-
+           
             # Validate and apply drc_commision_rule filter
             if drc_commision_rule is not None:
                 if drc_commision_rule == "PEO TV":
@@ -132,7 +122,7 @@ def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
                 elif drc_commision_rule == "BB":
                   reject_query["drc_commision_rule"] = drc_commision_rule
                 else:
-                     raise ValueError(f"Invalid actions '{actions}'. Must be 'PEO TV', 'BB'")
+                     raise ValueError(f"Invalid drc commision rule '{drc_commision_rule}'. Must be 'PEO TV', 'BB'")
 
             # Apply date range filter
             if from_date is not None and to_date is not None:
@@ -167,7 +157,6 @@ def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
             wb.remove(wb.active)
 
             if not create_rejected_table(wb, incidents, {
-                "actions": actions,
                 "drc_commision_rule": drc_commision_rule,
                 "date_range": (datetime.strptime(from_date, '%Y-%m-%d') if from_date else None,
                             datetime.strptime(to_date, '%Y-%m-%d') if to_date else None)
@@ -185,7 +174,6 @@ def excel_rejected_detail(actions, drc_commision_rule, from_date,to_date):
                     "Export_Timestamp": datetime.now(),
                     "Exported_Record_Count": len(incidents),
                     "Applied_Filters": {
-                        "Actions": actions,
                         "DRC_Commision_Rule": drc_commision_rule,
                         "From_Date": from_date,
                         "To_Date": to_date

@@ -125,9 +125,13 @@ def excel_incident_detail(action_type, status, from_date, to_date):
             if status is not None:
                 if status == "Incident Open":
                     incident_query["Incident_Status"] = {"$regex": f"^{status}$"}
-                elif status == "Incident close":
+                elif status == "Reject":
                     incident_query["Incident_Status"] = status
-                elif status == "Incident reject":
+                elif status == "Complete":
+                    incident_query["Incident_Status"] = status
+                elif status == "Incident Error":
+                    incident_query["Incident_Status"] = status
+                elif status == "Incident Inprogress":
                     incident_query["Incident_Status"] = status
                 else:
                     raise ValueError(f"Invalid status '{status}'. Must be 'Incident Open', 'Incident Close', or 'Incident Reject'")

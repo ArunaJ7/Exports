@@ -153,7 +153,7 @@ def excel_direct_lod_detail(from_date, to_date, drc_commision_rule):
 
             wb.save(filepath)
 
-             # Write export record to Download collection
+            # Write export record to Download collection
             try:
                 download_collection = db["file_download_log"]
                 export_record = {

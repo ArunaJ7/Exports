@@ -110,11 +110,12 @@ def excel_pending_reject_incident(drc_commission_rules, from_date, to_date):
             db = MongoDBConnectionSingleton().get_database()
             incident_log_collection = db["Incident"]
 
-            pending_reject_query = {"Incident_Status": {"$in": [ "Incident Reject"]}}
+            pending_reject_query = {"Incident_Status": {"$in": [ "Pending Reject"]}}
 
+          
             # Check drc_commission_rules
             if drc_commission_rules is not None:
-                if isinstance(drc_commission_rules, list) and drc_commission_rules:
+                if drc_commission_rules == "Peo TV":
                     pending_reject_query["Filtered_Reason"] = {"$in": drc_commission_rules}
                 else:
                     raise ValueError("drc_commission_rules must be a non-empty list of valid commission rules")
