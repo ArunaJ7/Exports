@@ -97,8 +97,7 @@ from utils.config_loader import ConfigLoaderSingleton
 logger = getLogger('appLogger')
 
 DIGITAL_SIGNATURES_HEADERS = [
-    "Incident_Id", "Incident_Status", "Account_Num", "Created_Dtm",
-    "Filtered_Reason"]
+    "case_id", "case_status", "account_no", "created_dtm", "case_current_status"]
 
 def excel_digital_signature_detail(case_current_status):
     """Fetch and export digital signature details from Incident collection"""
@@ -200,7 +199,7 @@ def create_digital_signature_table(wb, data, filters=None):
             row_idx += 1
             
             # Case_current_starus filter
-            if filters.get('actions'):
+            if filters.get('Case_cuurent_status'):
                 ws.cell(row=row_idx, column=2, value="Case_current_status:").font = STYLES['FilterParam_Style']['font']
                 ws.cell(row=row_idx, column=2).fill = STYLES['FilterParam_Style']['fill']
                 ws.cell(row=row_idx, column=2).alignment = STYLES['FilterParam_Style']['alignment']
@@ -212,7 +211,7 @@ def create_digital_signature_table(wb, data, filters=None):
         
         # Data Table Headers
         header_row = row_idx
-        for col_idx, header in enumerate(DIGITAL_SIGNATURES_HEADERS)), 1):
+        for col_idx, header in enumerate(DIGITAL_SIGNATURES_HEADERS), 1:
             cell = ws.cell(row=row_idx, column=col_idx, value=header.replace('_', ' ').title())
             cell.font = STYLES['SubHeader_Style']['font']
             cell.fill = STYLES['SubHeader_Style']['fill']
@@ -223,7 +222,7 @@ def create_digital_signature_table(wb, data, filters=None):
         # Data Rows
         for record in data:
             row_idx += 1
-            for col_idx, header in enumerate(DIGITAL_SIGNATURES_HEADERS)), 1):
+            for col_idx, header in enumerate(DIGITAL_SIGNATURES_HEADERS), 1:
                 value = record.get(header, "")
                 if header == "Incident_Id" and isinstance(value, ObjectId):
                     value = str(value)
@@ -240,7 +239,7 @@ def create_digital_signature_table(wb, data, filters=None):
             ws.auto_filter.ref = f"{get_column_letter(1)}{header_row}:{last_col_letter}{row_idx}"
         
         # Auto-adjust columns
-        for col_idx in range(1, len(DIGITAL_SIGNATURES_HEADERS)) + 1):
+        for col_idx in range(1, len(DIGITAL_SIGNATURES_HEADERS)) + 1:
             col_letter = get_column_letter(col_idx)
             max_length = max(
                 len(str(cell.value)) if cell.value else 0
